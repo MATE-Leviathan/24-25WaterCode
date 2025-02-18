@@ -1,4 +1,4 @@
-This is the robot code for Leviathan, which is competing in the
+This is the robot code for Leviathan, which is competing in the RANGER class of the MATE ROV Competition
 # water game
 
 ![xkcd](https://imgs.xkcd.com/comics/first_design.png)
