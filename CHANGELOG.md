@@ -31,4 +31,4 @@ Format should be what you changed, why, and a link to the PR (required for pushi
 
 :seedling: Initial release of document.
 
-[0.0.1]: https://github.com/MATE-Leviathan/2023WaterCode/commit/225b567db80c62edfbb1c9968e0f939f55c8ae49
+[0.0.1]: https://github.com/MATE-Leviathan/24-25WaterCode/commit/225b567db80c62edfbb1c9968e0f939f55c8ae49

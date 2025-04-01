@@ -103,7 +103,7 @@ RUN echo "source /opt/ros/foxy/setup.bash" >> /home/ubuntu/.bashrc
 RUN echo "source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash" >> /home/ubuntu/.bashrc
 RUN echo "source /usr/share/colcon_cd/function/colcon_cd.sh" >> /home/ubuntu/.bashrc
 RUN echo "export _colcon_cd_root=/opt/ros/foxy/" >> /home/ubuntu/.bashrc
-RUN echo "source /home/ubuntu/2023WaterCode/scripts/command_aliases.sh" >> /home/ubuntu/.bashrc
+RUN echo "source /home/ubuntu/24-25WaterCode/scripts/command_aliases.sh" >> /home/ubuntu/.bashrc
 
 # RUN apt-get autoremove -y \
 #     && apt-get clean -y \

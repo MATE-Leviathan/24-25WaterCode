@@ -69,7 +69,7 @@ done
 set -- "${POSITIONAL[@]}" # restore positional parameters
 
 
-JETSON_CLONE_LOCATION=/home/ubuntu/2023WaterCode
+JETSON_CLONE_LOCATION=/home/ubuntu/24-25WaterCode
 JETSON_ENV_LOCATION=$JETSON_CLONE_LOCATION.$INSTALL_ENV
 JETSON_ROS_CODE_LOCATION=$JETSON_ENV_LOCATION/fishROS_ws
 
@@ -121,7 +121,7 @@ echo "Time synchronized."
 echo "Killing code on remotes "
 for i in "${JETSON_ADDR[@]}"
 do
-    echo ubuntu | ssh -tt ubuntu@$i "sudo /home/ubuntu/2023WaterCode/fishROS_ws/kill_ros_.sh"
+    echo ubuntu | ssh -tt ubuntu@$i "sudo /home/ubuntu/24-25WaterCode/fishROS_ws/kill_ros_.sh"
 done
 echo "ROS Killed on Jetson"
 
