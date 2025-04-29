@@ -41,6 +41,7 @@ ENV NVIDIA_VISIBLE_DEVICES \
 ENV EDITOR=code
 # ENV XDG_RUNTIME_DIR=/tmp
 # I removed gazebo
+# I added rosbridge-suite to connect to foxglove. Remove when switching to Humble.
 RUN apt-get update && apt-get install -y \
     cmake \
     curl \
@@ -66,6 +67,7 @@ RUN apt-get update && apt-get install -y \
     ros-foxy-usb-cam \
     ros-foxy-joy-linux \
     ros-foxy-xacro \
+    ros-foxy-rosbridge-suite \
     ruby-dev \
     rviz \
     tmux \
