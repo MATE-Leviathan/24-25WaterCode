@@ -4,6 +4,8 @@ Date Created: March 6, 2024
 Description: Controls the MATE ROV and Claw with a twist message and Point message, respectively
 Subscribers: Point, Imu, Twist
 Publishers: None
+TODO:
+add depth subscriber for hovering
 """
 
 import rclpy
@@ -21,7 +23,7 @@ from geometry_msgs.msg import Quaternion
 from geometry_msgs.msg import Vector3
 
 # Final Global Variables
-THRUSTER_PINS = [1, 2, 3, 13, 14, 15]
+THRUSTER_PINS = [2, 3, 1, 0, 5, 4]
 CLAW_PINS = [5, 6, 7]  # The last pin should be the one that controls opening/closing
 ONEOVERROOTTWO = 1 / math.sqrt(2)
 CONTROLLER_DEADZONE = 0.01
@@ -70,13 +72,13 @@ class DriveRunner(Node):
         self.thrusters[index].angle = 90 * value + 90
 
     """
-    Current Mapping 4/13/24:
-    LF: 1
-    LU: 2
-    LB: 3
-    RF: 15
-    RU: 14
-    RB: 13
+    Current Mapping 4/30/25:
+    LF: 2
+    LU: 3
+    LB: 1
+    RF: 0
+    RU: 5
+    RB: 4
     """
     
     def twist_callback(self, msg):
