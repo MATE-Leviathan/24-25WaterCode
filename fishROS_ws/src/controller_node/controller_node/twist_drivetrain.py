@@ -21,6 +21,7 @@ from sensor_msgs.msg import Imu
 from geometry_msgs.msg import Twist
 from geometry_msgs.msg import Quaternion
 from geometry_msgs.msg import Vector3
+from geometry_msgs.msg import Point
 
 # Final Global Variables
 THRUSTER_PINS = [2, 3, 1, 0, 5, 4]
@@ -135,7 +136,7 @@ class PointSub(Node):
     def __init__(self):
         # Initializing the subscriber
         super().__init__('point_subscriber')
-        self.subscription = self.create_subscription(Point, 'claw', 10)
+        self.subscription = self.create_subscription(Point, 'claw', self.point_callback, 10)
         timer_period = 0.01
         self.timer = self.create_timer(timer_period, self.point_callback)
 
