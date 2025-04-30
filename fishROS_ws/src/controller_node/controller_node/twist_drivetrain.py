@@ -121,8 +121,6 @@ class IMUSub(Node):
     def __init__(self):
         super().__init__('imu_subscriber')
         self.subscription = self.create_subscription(Imu, 'IMUData', self.imu_callback, 10)
-        timer_period = 0.01
-        self.timer = self.create_timer(timer_period, self.imu_callback)
 
     def imu_callback(self, msg):
         global orientation, linear_acceleration, angular_velocity, imu_init
@@ -137,8 +135,6 @@ class PointSub(Node):
         # Initializing the subscriber
         super().__init__('point_subscriber')
         self.subscription = self.create_subscription(Point, 'claw', self.point_callback, 10)
-        timer_period = 0.01
-        self.timer = self.create_timer(timer_period, self.point_callback)
 
         # Initializing the PCA Board
         i2c_bus = busio.I2C(SCL, SDA)
