@@ -24,6 +24,8 @@ class Bar02Pub(Node):
         if not self.sensor.init():
             self.get_logger().error("Sensor could not be initialized")
             exit(1)
+            
+        self.sensor.setFluidDensity(1000) #1000 kg/m^3   pool water might be slightly denser
         
         # Publisher setup
         self.depth_pub = self.create_publisher(Float32, 'bar02/depth', 10)
