@@ -30,7 +30,7 @@ class IMUPub():
         super().__init__("imu_publisher")
         self.publisher = self.create_publisher(Imu, 'imu', 10)
 
-        timer.period = 0.02
+        timer_period = 0.02
         self.timer = self.create_timer(timer_period, self.publishIMU)
     
 
