@@ -2,10 +2,14 @@ import ms5837
 import time
 
 for bus in range(3):  # Try i2c-0, i2c-1, i2c-2
-    sensor = ms5837.MS5837(ms5837.MODEL_02BA, bus)
-    if sensor.init():
-        print(f"Sensor found on I2C bus {bus}")
-        break
+    print("bus ",bus)
+    try:
+        sensor = ms5837.MS5837(ms5837.MODEL_02BA, bus)
+        if sensor.init():
+            print(f"Sensor found on I2C bus {bus}")
+            break
+    except:
+        pass
 
 # We must initialize the sensor before reading it
 if not sensor.init():
