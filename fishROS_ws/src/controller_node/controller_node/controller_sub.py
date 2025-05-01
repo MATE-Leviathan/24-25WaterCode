@@ -9,7 +9,6 @@ Publishers: Twist, Point
 
 import rclpy
 import time
-import busio
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
 from sensor_msgs.msg import Joy

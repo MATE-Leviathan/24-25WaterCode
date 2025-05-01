@@ -25,7 +25,7 @@ from geometry_msgs.msg import Point
 
 # Final Global Variables
 THRUSTER_PINS = [2, 3, 1, 0, 5, 4]
-CLAW_PINS = [5, 6, 7]  # The last pin should be the one that controls opening/closing
+CLAW_PINS = [6, 7]  # The last pin should be the one that controls opening/closing
 ONEOVERROOTTWO = 1 / math.sqrt(2)
 CONTROLLER_DEADZONE = 0.01
 THRUST_SCALE_FACTOR = 0.83375
@@ -90,10 +90,10 @@ class DriveRunner(Node):
         z_rotation = msg.angular.z
         ### Horizontal Motor Writing
         if abs(x) > CONTROLLER_DEADZONE or abs(y) > CONTROLLER_DEADZONE: # Linear Movement in XY
-            self.set_thruster(5, ONEOVERROOTTWO * (x + y))
-            self.set_thruster(0, ONEOVERROOTTWO * (x - y))
-            self.set_thruster(3, ONEOVERROOTTWO * (y - x))
-            self.set_thruster(2, ONEOVERROOTTWO * (-y - x))
+            self.set_thruster(5, ONEOVERROOTTWO * (x + y)) # RB
+            self.set_thruster(0, ONEOVERROOTTWO * (x - y)) # LF
+            self.set_thruster(3, ONEOVERROOTTWO * (y - x)) # RF
+            self.set_thruster(2, ONEOVERROOTTWO * (-y - x)) # LB
         elif abs(z_rotation) > CONTROLLER_DEADZONE:  # Yaw (Spin)
             self.set_thruster(5, -z_rotation)
             self.set_thruster(0, z_rotation)
@@ -107,8 +107,8 @@ class DriveRunner(Node):
 
         ### Vertical Motor Writing
         if abs(z) > CONTROLLER_DEADZONE:  # Linear Movement in Z
-            self.set_thruster(1, -z)
-            self.set_thruster(4, -z)
+            self.set_thruster(1, -z) # LU
+            self.set_thruster(4, -z) # RU
         elif abs(x_rotation) > CONTROLLER_DEADZONE:  # Roll
             self.set_thruster(1, x_rotation)
             self.set_thruster(4, -x_rotation)
@@ -160,16 +160,16 @@ class PointSub(Node):
             self.writeClawZ()
     
     def writeClawY(self):
-        y_angle = min(y_angle, 0)
-        y_angle = max(y_angle, 300)
+        self.y_angle = min(self.y_angle, 0)
+        self.y_angle = max(self.y_angle, 300)
         servos[2].angle = int(y_angle)
     
     def writeClawZ(self):
-        z_angle = min(z_angle, 0)
-        z_angle = max(z_angle, 300)
+        self.z_angle = min(self.z_angle, 0)
+        self.z_angle = max(self.z_angle, 300)
         # This should run them in opposite directions
-        servos[0].angle = 300 - int(z_angle)
-        servos[1].angle = int(z_angle)
+        servos[0].angle = 300 - int(self.z_angle)
+        servos[1].angle = int(self.z_angle)
 
 
 def main(args=None):
