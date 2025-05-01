@@ -187,3 +187,6 @@ def main(args=None):
 
     # Starting the execution loop
     executor.spin()
+
+if __name__ == '__main__':
+    main()
