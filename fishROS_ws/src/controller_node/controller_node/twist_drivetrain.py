@@ -27,7 +27,7 @@ from geometry_msgs.msg import Point
 THRUSTER_PINS = [2, 3, 1, 0, 5, 4]
 CLAW_PINS = [6, 7]  # The last pin should be the one that controls opening/closing
 ONEOVERROOTTWO = 1 / math.sqrt(2)
-CONTROLLER_DEADZONE = 0.01
+CONTROLLER_DEADZONE = 0.05
 THRUST_SCALE_FACTOR = 0.83375
 INITAL_CLAW_Y = 0
 INITIAL_CLAW_Z = 0
@@ -162,13 +162,11 @@ class PointSub(Node):
             self.writeClawZ()
     
     def writeClawY(self):
-        self.y_angle = min(self.y_angle, 0)
-        self.y_angle = max(self.y_angle, 300)
+        self.y_angle = max(0, min(self.y_angle, 300))
         self.servos[0].angle = int(self.y_angle)
     
     def writeClawZ(self):
-        self.z_angle = min(self.z_angle, 0)
-        self.z_angle = max(self.z_angle, 300)
+        self.z_angle = max(0, min(self.z_angle, 300))
         # This should run them in opposite directions 4/30/25 no more need cuz only one servo for closing
         self.servos[1].angle = 300 - int(self.z_angle)
         #self.servos[1].angle = int(self.z_angle)
