@@ -71,6 +71,7 @@ class DriveRunner(Node):
         value = min(max(value, -1), 1)  # Keeping it in bounds
         value = value if value < 0 else value * THRUST_SCALE_FACTOR
         self.thrusters[index].angle = 90 * value + 90
+        self.get_logger().info(f'Thruster {index}: {90 * value + 90}') 
 
     """
     Current Mapping 4/30/25:
@@ -83,6 +84,7 @@ class DriveRunner(Node):
     """
     
     def twist_callback(self, msg):
+        self.get_logger().info(f'Recieved Twist: {msg}')   
         x = msg.linear.x
         y = msg.linear.y
         z = msg.linear.z
