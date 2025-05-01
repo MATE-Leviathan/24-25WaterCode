@@ -8,7 +8,7 @@ KNOWN_DEVICES = {
     0x28: 'BNO055 (IMU)',  # BNO055 default I2C address
     0x29: 'BNO055 (IMU)',  # BNO055 alternate address
     0x40: 'PCA9685 (PWM Breakout Board)',  # PCA9685 default I2C address
-    0x76: 'Bar02 (Depth)',
+    0x76: 'Bar02 (Depth)', # ms5837 default I2C address
     0x48: "ADS1115 (AD Converter for pH)", # ADS1115 default
     0x49: "ADS1115 (AD Converter for pH)", # ADS1115 if address pin is pulled to VCC
 }
