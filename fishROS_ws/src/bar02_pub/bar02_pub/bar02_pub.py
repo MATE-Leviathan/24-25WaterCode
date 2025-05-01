@@ -17,8 +17,8 @@ class Bar02Pub(Node):
         # Creating the Publisher
         super().__init__('bar02_publisher')
         
-        # Initialize MS5837 sensor on I2C bus 2 (i.e., /dev/i2c-2)
-        self.sensor = ms5837.MS5837(ms5837.MODEL_02BA, 2)
+        # Initialize MS5837 sensor on I2C bus 0 (i.e., /dev/i2c-0)
+        self.sensor = ms5837.MS5837(ms5837.MODEL_02BA, 0)
         
         # Initialize sensor
         if not self.sensor.init():
