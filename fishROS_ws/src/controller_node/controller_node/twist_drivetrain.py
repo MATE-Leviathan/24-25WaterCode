@@ -162,7 +162,7 @@ class PointSub(Node):
     def writeClawY(self):
         self.y_angle = min(self.y_angle, 0)
         self.y_angle = max(self.y_angle, 300)
-        servos[2].angle = int(y_angle)
+        servos[2].angle = int(self.y_angle)
     
     def writeClawZ(self):
         self.z_angle = min(self.z_angle, 0)
