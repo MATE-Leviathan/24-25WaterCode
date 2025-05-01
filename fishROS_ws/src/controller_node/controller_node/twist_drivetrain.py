@@ -29,8 +29,8 @@ CLAW_PINS = [6, 7]  # The last pin should be the one that controls opening/closi
 ONEOVERROOTTWO = 1 / math.sqrt(2)
 CONTROLLER_DEADZONE = 0.05
 THRUST_SCALE_FACTOR = 0.83375
-INITAL_CLAW_Y = 0
-INITIAL_CLAW_Z = 0
+INITAL_CLAW_Y = 150 # should actually be x rotation but I'm too lazy to change it
+INITIAL_CLAW_Z = 150
 
 # Dynamic Global Variables
 global imu_init, orientation, linear_acceleration, angular_velocity
@@ -162,14 +162,16 @@ class PointSub(Node):
             self.writeClawZ()
     
     def writeClawY(self):
-        self.y_angle = max(0, min(self.y_angle, 300))
+        self.y_angle = max(0, min(self.y_angle, 300)) # limits servo movement between 0 and 300
         self.servos[0].angle = int(self.y_angle)
+        self.get_logger().info(f'Rotation Servo: {self.y_angle}')
     
     def writeClawZ(self):
         self.z_angle = max(0, min(self.z_angle, 300))
         # This should run them in opposite directions 4/30/25 no more need cuz only one servo for closing
-        self.servos[1].angle = 300 - int(self.z_angle)
-        #self.servos[1].angle = int(self.z_angle)
+        #self.servos[1].angle = 300 - int(self.z_angle)
+        self.servos[1].angle = int(self.z_angle)
+        self.get_logger().info(f'Claw Servo: {self.z_angle}')        
 
 
 def main(args=None):
