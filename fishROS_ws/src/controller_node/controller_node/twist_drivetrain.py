@@ -154,9 +154,11 @@ class PointSub(Node):
 
         if y != 0.0:
             self.y_angle += y
+            self.get_logger().info(f'y_angle: {self.y_angle}')
             self.writeClawY()
         if z != 0.0:
             self.z_angle += z
+            self.get_logger().info(f'z_angle: {self.z_angle}')
             self.writeClawZ()
     
     def writeClawY(self):
@@ -185,16 +187,3 @@ def main(args=None):
 
     # Starting the execution loop
     executor.spin()
-
-    # Destroying Nodes
-    drive_runner.destroy_node()
-    imu_sub.destroy_node()
-    point_sub.destroy_node()
-
-    # Shutting down the program
-    rclpy.shutdown()
-
-
-if __name__ == '__main__':
-    main()
-
