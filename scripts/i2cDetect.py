@@ -1,8 +1,7 @@
 # Tries to find all i2c devices on all i2c buses
 
 import os
-import busio
-import board
+from smbus2 import SMBus, i2c_msg
 
 # Known device addresses
 KNOWN_DEVICES = {
@@ -14,42 +13,37 @@ KNOWN_DEVICES = {
     0x49: "ADS1115 (AD Converter for pH)", # ADS1115 if address pin is pulled to VCC
 }
 
-def get_i2c_bus_numbers():
-    """Return a sorted list of I2C bus numbers like [0, 1, 2, ...]"""
+def get_i2c_buses():
     return sorted(
-        int(dev[-1]) for dev in os.listdir('/dev') if dev.startswith('i2c-') and dev[-1].isdigit()
+        int(dev.replace("i2c-", "")) 
+        for dev in os.listdir('/dev') if dev.startswith('i2c-')
     )
 
 def scan_bus(busnum):
-    """Try to scan one I2C bus and identify known devices"""
-    print(f"\nScanning I2C bus {busnum}...")
+    print(f"\nScanning I2C bus {busnum} (/dev/i2c-{busnum})...")
     try:
-        i2c = busio.I2C(board.SCL, board.SDA, busnum=busnum)
-        while not i2c.try_lock():
-            pass
-        devices = i2c.scan()
-        i2c.unlock()
+        with SMBus(busnum) as bus:
+            found = False
+            for address in range(0x03, 0x78):
+                try:
+                    bus.write_quick(address)
+                    found = True
+                    name = KNOWN_DEVICES.get(address, "Unknown device")
+                    print(f"  Found {name} at address 0x{address:02X}")
+                except OSError:
+                    continue
+            if not found:
+                print("  No devices found.")
+    except FileNotFoundError:
+        print(f"  /dev/i2c-{busnum} not available.")
 
-        if devices:
-            print(f"  Found devices at: {[hex(addr) for addr in devices]}")
-            for addr in devices:
-                if addr in KNOWN_DEVICES:
-                    print(f"    Found {KNOWN_DEVICES[addr]} device at address {hex(addr)}")
-                else:
-                    print(f"    Unknown device at address {hex(addr)}")
-        else:
-            print("  No devices found.")
-
-    except Exception as e:
-        print(f"  Error scanning bus {busnum}: {e}")
-
-def scan_all_buses():
-    busnums = get_i2c_bus_numbers()
-    if not busnums:
+def main():
+    buses = get_i2c_buses()
+    if not buses:
         print("No I2C buses found.")
         return
-    for busnum in busnums:
+    for busnum in buses:
         scan_bus(busnum)
 
 if __name__ == "__main__":
-    scan_all_buses()
+    main()
