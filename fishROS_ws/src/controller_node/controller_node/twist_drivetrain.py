@@ -54,7 +54,7 @@ class DriveRunner(Node):
         # Initializing the thrusters
         self.thrusters = []
         for pin in THRUSTER_PINS:
-            self.thrusters.append(servo.Servo(self.pca.channels[pin], min_pulse=1141, max_pulse=1971))
+            self.thrusters.append(servo.Servo(self.pca.channels[pin], min_pulse=1340, max_pulse=1870))
 
         self.drivetrainInit()
 

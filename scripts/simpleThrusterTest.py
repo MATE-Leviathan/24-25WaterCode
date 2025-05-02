@@ -35,10 +35,10 @@ print('initializing')
 time.sleep(5)
 print('running')
 
-#fr1.angle = userAngle
+fr1.angle = userAngle
 mr2.angle = userAngle
-#br3.angle = userAngle
-#bl4.angle = userAngle
+br3.angle = userAngle
+bl4.angle = userAngle
 ml5.angle = userAngle
-#fl6.angle = userAngle
+fl6.angle = userAngle
 oscilloscope.angle = userAngle

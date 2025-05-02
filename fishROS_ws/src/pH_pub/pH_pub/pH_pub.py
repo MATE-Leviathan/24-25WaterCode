@@ -20,7 +20,7 @@ class PHPub(Node):
         super().__init__('pH_publisher')
         
         # Initialize ADS1115
-        i2c = busio.I2C(board.SCL, board.SDA)
+        i2c = busio.I2C('GP13_I2C2_CLK', 'GP14_I2C2_DAT')
         self.ads = ADS.ADS1115(i2c)
         
         # Use Single-ended Mode (AIN0)
