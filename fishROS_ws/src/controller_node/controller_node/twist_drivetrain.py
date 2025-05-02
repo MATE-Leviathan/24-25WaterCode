@@ -29,8 +29,8 @@ CLAW_PINS = [6, 7]  # The last pin should be the one that controls opening/closi
 ONEOVERROOTTWO = 1 / math.sqrt(2)
 CONTROLLER_DEADZONE = 0.05
 THRUST_SCALE_FACTOR = 0.83375
-INITAL_CLAW_Y = 150 # should actually be x rotation but I'm too lazy to change it
-INITIAL_CLAW_Z = 150
+INITAL_CLAW_Y = 0 # should actually be x rotation but I'm too lazy to change it
+INITIAL_CLAW_Z = 0
 
 # Dynamic Global Variables
 global imu_init, orientation, linear_acceleration, angular_velocity
