@@ -41,6 +41,14 @@ ONEOVERROOTTWO = 1 / math.sqrt(2)  # Small speedup for linear movement calculati
 MIDPOINT_ANGLE = 90  # This is the stationary angle
 ANGLE_RANGE = 90  # This is the range from midpoint to max/min thrust
 
+# Defining Thruster Pins
+FRONTRIGHT = 0 # Index the front right thruster will be in the array
+MIDRIGHT = 5 # Index the middle right thruster will be in the array
+BACKRIGHT = 4 # Index the back right thruster will be in the array
+FRONTLEFT = 2 # Index the front left thruster will be in the array
+MIDLEFT = 3 # Index the middle left thruster will be in the array
+BACKLEFT = 1 # Index the back left thruster will be in the array
+
 
 class DriveRunner(Node):
     def __init__(self, node_name, use_global_arguments=False):
@@ -111,8 +119,8 @@ def drivetrain_init():
     # Thruster Variables
     NUM_MOTORS = 6
     START_PIN = 8
-    MIN_PULSE = 1100
-    MAX_PULSE = 1900
+    MIN_PULSE = 1340
+    MAX_PULSE = 1870
 
     # Creating the Thrusters
     for i in range(NUM_MOTORS):
@@ -152,23 +160,23 @@ def write(x, y, z, x_rotation, y_rotation, z_rotation):
     ### Horizontal Motor Writing
     if abs(x) > CONTROLLER_DEADZONE or abs(y) > CONTROLLER_DEADZONE:  # Linear Movement in XY
         x *= -1  # Reversal to compensate for the non-standard basis
-        set_thruster(5, -1 * ONEOVERROOTTWO * (x + y))
-        set_thruster(3, ONEOVERROOTTWO * (x - y))
-        set_thruster(0, ONEOVERROOTTWO * (y - x))
-        set_thruster(1, ONEOVERROOTTWO * (y + x))
+        set_thruster(5, -1 * ONEOVERROOTTWO * (x + y)) # 5
+        set_thruster(3, ONEOVERROOTTWO * (x - y)) # 3
+        set_thruster(0, ONEOVERROOTTWO * (y - x)) # 0
+        set_thruster(1, ONEOVERROOTTWO * (y + x)) # 1
     elif abs(z_rotation) > CONTROLLER_DEADZONE:  # Yaw (Spin)
-        set_thruster(5, -z_rotation)
-        set_thruster(3, z_rotation)
-        set_thruster(1, -z_rotation)
-        set_thruster(0, z_rotation)
+        set_thruster(5, -z_rotation) # 5
+        set_thruster(3, z_rotation) # 3
+        set_thruster(1, -z_rotation) # 1
+        set_thruster(0, z_rotation) # 0
 
     ### Vertical Motor Writing
     if abs(z) > CONTROLLER_DEADZONE:  # Linear Movement in Z
-        set_thruster(2, z)
-        set_thruster(4, z)
+        set_thruster(2, z) # 2
+        set_thruster(4, z) # 4
     elif abs(x_rotation) > CONTROLLER_DEADZONE:  # Roll
-        set_thruster(2, x_rotation)
-        set_thruster(4, -x_rotation)
+        set_thruster(2, x_rotation) # 2
+        set_thruster(4, -x_rotation) # 4
 
 
 """

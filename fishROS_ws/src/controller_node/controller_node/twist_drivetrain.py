@@ -4,6 +4,8 @@ Date Created: March 6, 2024
 Description: Controls the MATE ROV and Claw with a twist message and Point message, respectively
 Subscribers: Point, Imu, Twist
 Publishers: None
+TODO:
+add depth subscriber for hovering
 """
 
 import rclpy
@@ -19,14 +21,15 @@ from sensor_msgs.msg import Imu
 from geometry_msgs.msg import Twist
 from geometry_msgs.msg import Quaternion
 from geometry_msgs.msg import Vector3
+from geometry_msgs.msg import Point
 
 # Final Global Variables
-THRUSTER_PINS = [1, 2, 3, 13, 14, 15]
-CLAW_PINS = [5, 6, 7]  # The last pin should be the one that controls opening/closing
+THRUSTER_PINS = [2, 3, 1, 0, 5, 4]
+CLAW_PINS = [6, 7]  # The last pin should be the one that controls opening/closing
 ONEOVERROOTTWO = 1 / math.sqrt(2)
-CONTROLLER_DEADZONE = 0.01
+CONTROLLER_DEADZONE = 0.05
 THRUST_SCALE_FACTOR = 0.83375
-INITAL_CLAW_Y = 0
+INITAL_CLAW_Y = 0 # should actually be x rotation but I'm too lazy to change it
 INITIAL_CLAW_Z = 0
 
 # Dynamic Global Variables
@@ -51,7 +54,7 @@ class DriveRunner(Node):
         # Initializing the thrusters
         self.thrusters = []
         for pin in THRUSTER_PINS:
-            self.thrusters.append(servo.Servo(self.pca.channels[pin], min_pulse=1141, max_pulse=1971))
+            self.thrusters.append(servo.Servo(self.pca.channels[pin], min_pulse=1340, max_pulse=1870))
 
         self.drivetrainInit()
 
@@ -68,18 +71,20 @@ class DriveRunner(Node):
         value = min(max(value, -1), 1)  # Keeping it in bounds
         value = value if value < 0 else value * THRUST_SCALE_FACTOR
         self.thrusters[index].angle = 90 * value + 90
+        self.get_logger().info(f'Thruster {index}: {90 * value + 90}') 
 
     """
-    Current Mapping 4/13/24:
-    LF: 1
-    LU: 2
-    LB: 3
-    RF: 15
-    RU: 14
-    RB: 13
+    Current Mapping 4/30/25:
+    LF: 2
+    LU: 3
+    LB: 1
+    RF: 0
+    RU: 5
+    RB: 4
     """
     
     def twist_callback(self, msg):
+        self.get_logger().info(f'Recieved Twist: {msg}')   
         x = msg.linear.x
         y = msg.linear.y
         z = msg.linear.z
@@ -87,10 +92,10 @@ class DriveRunner(Node):
         z_rotation = msg.angular.z
         ### Horizontal Motor Writing
         if abs(x) > CONTROLLER_DEADZONE or abs(y) > CONTROLLER_DEADZONE: # Linear Movement in XY
-            self.set_thruster(5, ONEOVERROOTTWO * (x + y))
-            self.set_thruster(0, ONEOVERROOTTWO * (x - y))
-            self.set_thruster(3, ONEOVERROOTTWO * (y - x))
-            self.set_thruster(2, ONEOVERROOTTWO * (-y - x))
+            self.set_thruster(5, ONEOVERROOTTWO * (x + y)) # RB
+            self.set_thruster(0, ONEOVERROOTTWO * (x - y)) # LF
+            self.set_thruster(3, ONEOVERROOTTWO * (y - x)) # RF
+            self.set_thruster(2, ONEOVERROOTTWO * (-y - x)) # LB
         elif abs(z_rotation) > CONTROLLER_DEADZONE:  # Yaw (Spin)
             self.set_thruster(5, -z_rotation)
             self.set_thruster(0, z_rotation)
@@ -104,8 +109,8 @@ class DriveRunner(Node):
 
         ### Vertical Motor Writing
         if abs(z) > CONTROLLER_DEADZONE:  # Linear Movement in Z
-            self.set_thruster(1, -z)
-            self.set_thruster(4, -z)
+            self.set_thruster(1, -z) # LU
+            self.set_thruster(4, -z) # RU
         elif abs(x_rotation) > CONTROLLER_DEADZONE:  # Roll
             self.set_thruster(1, x_rotation)
             self.set_thruster(4, -x_rotation)
@@ -118,8 +123,6 @@ class IMUSub(Node):
     def __init__(self):
         super().__init__('imu_subscriber')
         self.subscription = self.create_subscription(Imu, 'IMUData', self.imu_callback, 10)
-        timer_period = 0.01
-        self.timer = self.create_timer(timer_period, self.imu_callback)
 
     def imu_callback(self, msg):
         global orientation, linear_acceleration, angular_velocity, imu_init
@@ -133,9 +136,7 @@ class PointSub(Node):
     def __init__(self):
         # Initializing the subscriber
         super().__init__('point_subscriber')
-        self.subscription = self.create_subscription(Point, 'claw', 10)
-        timer_period = 0.01
-        self.timer = self.create_timer(timer_period, self.point_callback)
+        self.subscription = self.create_subscription(Point, 'claw', self.point_callback, 10)
 
         # Initializing the PCA Board
         i2c_bus = busio.I2C(SCL, SDA)
@@ -155,22 +156,24 @@ class PointSub(Node):
 
         if y != 0.0:
             self.y_angle += y
+            self.get_logger().info(f'y_angle: {self.y_angle}')
             self.writeClawY()
         if z != 0.0:
             self.z_angle += z
+            self.get_logger().info(f'z_angle: {self.z_angle}')
             self.writeClawZ()
     
     def writeClawY(self):
-        y_angle = min(y_angle, 0)
-        y_angle = max(y_angle, 300)
-        servos[2].angle = int(y_angle)
+        self.y_angle = max(0, min(self.y_angle, 300)) # limits servo movement between 0 and 300
+        self.servos[0].angle = int(self.y_angle)
+        self.get_logger().info(f'Rotation Servo: {self.y_angle}')
     
     def writeClawZ(self):
-        z_angle = min(z_angle, 0)
-        z_angle = max(z_angle, 300)
-        # This should run them in opposite directions
-        servos[0].angle = 300 - int(z_angle)
-        servos[1].angle = int(z_angle)
+        self.z_angle = max(0, min(self.z_angle, 300))
+        # This should run them in opposite directions 4/30/25 no more need cuz only one servo for closing
+        #self.servos[1].angle = 300 - int(self.z_angle)
+        self.servos[1].angle = int(self.z_angle)
+        self.get_logger().info(f'Claw Servo: {self.z_angle}')        
 
 
 def main(args=None):
@@ -195,7 +198,5 @@ def main(args=None):
     # Shutting down the program
     rclpy.shutdown()
 
-
 if __name__ == '__main__':
     main()
-

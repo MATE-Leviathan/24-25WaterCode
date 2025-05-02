@@ -9,7 +9,6 @@ Publishers: Twist, Point
 
 import rclpy
 import time
-import busio
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
 from sensor_msgs.msg import Joy
@@ -124,7 +123,7 @@ class PointPub(Node):
 
             point_message.x = 0.0  # Not needed, left as 0
             point_message.y = axes[6]  # Open/close claw
-            point_message.z = axes[7]  # Raise/lower claw
+            point_message.z = axes[7]  # Rotate claw
 
             self.publisher.publish(point_message)
 
