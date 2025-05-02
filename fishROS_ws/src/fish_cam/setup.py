@@ -25,7 +25,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
     'console_scripts': [
-        'DWE_exploreHD_pub = fish_cam.DWE_exploreHD_pub:main'
+        'DWE_exploreHD_pub = fish_cam.DWE_exploreHD_pub:main',
+        'DWE_exploreHD_pub2 = fish_cam.DWE_exploreHD_pub2:main'
         ],
     },
 )

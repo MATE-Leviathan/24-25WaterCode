@@ -24,6 +24,21 @@ def generate_launch_description():
             '/joy.launch.py'])
     )
 
+    '''
+    drivetrain_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([os.path.join(
+            get_package_share_directory('controller_node'), 'launch'),
+            '/drivetrain_launch.py'
+        ])
+    )'''
+
+    controller_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([os.path.join(
+            get_package_share_directory('controller_node'), 'launch'),
+            '/controller_launch.py'
+        ])
+    )
+
     ''' 
     imu_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([os.path.join(
@@ -34,5 +49,7 @@ def generate_launch_description():
     
     return LaunchDescription([
         joy_launch,
+        drivetrain_launch,
+        controller_launch
         #imu_launch,
     ])

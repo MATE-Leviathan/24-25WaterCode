@@ -1,3 +1,5 @@
+#!/usr/bin/env
+
 """
 Date Created: 04/27/2024
 Author(s): Everett Tucker
