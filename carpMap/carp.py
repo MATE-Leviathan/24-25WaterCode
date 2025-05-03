@@ -3,7 +3,7 @@ from PIL import Image, ImageDraw
 from PIL import ImageFont
 import os
 
-base_map = Image.open(r"d:\Bao Truong\Pictures\Location-of-the-Illinois-River-basin resized base.png").convert("RGBA")
+base_map = Image.open(r"/home/ubuntu/24-25WaterCode/carpMap/Location-of-the-Illinois-River-basin resized base.png").convert("RGBA")
 
 b1x=204
 b1y=812
@@ -28,7 +28,7 @@ region_coords = {
                  (764, 259), (748, 296), (723, 311), (696, 314), (656, 318), (641, 282), (632, 234), (606, 198), (613, 169)],
 }
 
-df = pd.read_csv(r"D:\Bao Truong\Downloads\D - Sheet1.csv")
+df = pd.read_csv(r"/home/ubuntu/24-25WaterCode/carpMap/CarpData.csv")
 
 os.makedirs("frames", exist_ok=True)
 frames = []
@@ -50,11 +50,11 @@ for _, row in df.iterrows():
             label_x = avg_x + 30
             label_y = avg_y - 20
 
-            region_font = ImageFont.truetype("arialbd.ttf", 30)
+            region_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 30)
             draw.text((label_x, label_y), "Region " + region_number, font = region_font, fill = "black")
 
 
-    font = ImageFont.truetype("arial.ttf", 32)
+    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 32)
     text = f"Year: {year}"
     text_size = draw.textbbox((0,0), text, font=font)
     draw.rectangle([text_size[0] + 15, text_size[1] + 15, text_size[2] + 15, text_size[3] + 15], fill=(255, 255, 255, 200))
