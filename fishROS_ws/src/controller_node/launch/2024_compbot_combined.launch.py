@@ -32,12 +32,14 @@ def generate_launch_description():
         ])
     )'''
 
+
     controller_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([os.path.join(
             get_package_share_directory('controller_node'), 'launch'),
             '/controller_launch.py'
         ])
     )
+
 
     ''' 
     imu_launch = IncludeLaunchDescription(
@@ -49,7 +51,7 @@ def generate_launch_description():
     
     return LaunchDescription([
         joy_launch,
-        drivetrain_launch,
+        #drivetrain_launch,
         controller_launch
         #imu_launch,
     ])
