@@ -97,7 +97,7 @@ class ControllerSub(Node):
 class Bar02Sub(Node):
 
     def __init__(self):
-        super().__init__('bar02/depth_subscriber')
+        super().__init__('bar02depth_subscriber')
         self.subscription = self.create_subscription(
             Float32,
             'bar02/depth',
@@ -138,6 +138,7 @@ class PIDController: # need to add a cap so that it doesn't go too far
         self.prev_time = current_time
 
         output = max(min(output, 1.0), -1.0)
+        self.get_logger().info(f"Error: {error} Output: {output}")
         return output
 
 
@@ -172,7 +173,9 @@ class TwistPub(Node):
                 hold_depth = current_depth  # Update the target for PID
             elif depth_hold and depth_received:
                 # Use PID only if no manual input
+                self.get_logger().info("PID activated")
                 twist_message.linear.z = self.depth_pid.compute(hold_depth, current_depth) # change to negative if positive Z makes ROV go down
+
             else:
                 twist_message.linear.z = 0.0  # Neutral
 
