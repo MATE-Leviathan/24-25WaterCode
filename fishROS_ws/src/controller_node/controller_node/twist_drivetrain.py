@@ -170,8 +170,8 @@ class PointSub(Node):
         self.z_angle = min(self.z_angle, 0)
         self.z_angle = max(self.z_angle, 300)
         # This should run them in opposite directions 4/30/25 no more need cuz only one servo for closing
-        self.servos[1].angle = 300 - int(self.z_angle)
-        #self.servos[1].angle = int(self.z_angle)
+        #self.servos[1].angle = 300 - int(self.z_angle)
+        self.servos[1].angle = int(self.z_angle)
 
 
 def main(args=None):
