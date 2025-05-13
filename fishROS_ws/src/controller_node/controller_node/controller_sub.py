@@ -14,6 +14,7 @@ from rclpy.executors import MultiThreadedExecutor
 from sensor_msgs.msg import Joy
 from geometry_msgs.msg import Twist
 from geometry_msgs.msg import Point
+from std_msgs.msg import Float32
 
 # Static global variables
 LOW_SENSITIVITY = 0.5  # This is basically how much inputs are scaled when in sensitive mode
@@ -24,6 +25,11 @@ controller_init = False
 axes = []
 buttons = []
 sensitivity = 1
+depth_hold = False # if depth holding is on
+old_press = 0
+hold_depth = 0 # depth to hold
+current_depth = 0 # current rov depth
+depth_received = False
 
 
 class ControllerSub(Node):
@@ -67,7 +73,7 @@ class ControllerSub(Node):
         Whereas an angle of 90 resulted in slow forward motion.
         """
 
-        global controller_init, axes, buttons, sensitivity
+        global controller_init, axes, buttons, sensitivity, old_press, depth_hold, current_depth, hold_depth
         axes = msg.axes
         buttons = msg.buttons
         controller_init = True
@@ -77,29 +83,101 @@ class ControllerSub(Node):
             sensitivity = LOW_SENSITIVITY
         if buttons[1] == 1:
             sensitivity = HIGH_SENSITIVITY
-        
+
+        # Toggle state with X button
+        if buttons[2] == 1 and old_press == 0:
+            old_press = 1
+            depth_hold = not depth_hold
+            if depth_hold:
+                hold_depth = current_depth
+        if buttons[2] == 0:
+            old_press = 0
+
+
+class Bar02Sub(Node):
+
+    def __init__(self):
+        super().__init__('bar02depth_subscriber')
+        self.subscription = self.create_subscription(
+            Float32,
+            'bar02/depth',
+            self.listener_callback,
+            10)
+
+    def listener_callback(self, msg):
+        global current_depth, depth_received
+
+        current_depth = msg.data
+        depth_received = True
+
+
+# PID for Depth Hold    
+class PIDController: # need to add a cap so that it doesn't go too far
+
+    def __init__(self, kp, ki, kd):
+        self.kp = kp
+        self.ki = ki
+        self.kd = kd
+        self.integral = 0.0
+        self.prev_error = 0.0
+        self.prev_time = None
+
+    def compute(self, setpoint, measurement):
+        current_time = time.time()
+        error = setpoint - measurement
+        dt = current_time - self.prev_time if self.prev_time else 0.0
+
+        if dt > 0:
+            self.integral += error * dt
+            derivative = (error - self.prev_error) / dt
+        else:
+            derivative = 0.0
+
+        output = self.kp * error + self.ki * self.integral + self.kd * derivative
+        self.prev_error = error
+        self.prev_time = current_time
+
+        output = max(min(output, 1.0), -1.0)
+        self.get_logger().info(f"Error: {error} Output: {output}")
+        return output
+
 
 class TwistPub(Node):
     def __init__(self):
         # Creating the publisher
         super().__init__("twist_publisher")
         self.publisher = self.create_publisher(Twist, 'twist', 10)
+        self.depth_pid = PIDController(kp=2.0, ki=0.0, kd=0.0) # needs tuning
         timer_period = 0.01  # The timer period is the same as the callback period
         self.timer = self.create_timer(timer_period, self.publishTwist)
 
 
     def publishTwist(self):
+        global hold_depth
+
         if controller_init:
             twist_message = Twist()
 
             # Linear Motion - (x, y, z), scaling inputs by sensitivity
             twist_message.linear.x = axes[1] * sensitivity
             twist_message.linear.y = axes[0] * sensitivity
+
             if axes[2] < axes[5]:
                 linear_z = (axes[2] - 1) / 2
             else:
                 linear_z = -(axes[5] - 1) / 2
-            twist_message.linear.z = linear_z * sensitivity
+
+            # If there's manual input, override PID and reset hold_depth
+            if abs(linear_z) > 0.05:
+                twist_message.linear.z = linear_z * sensitivity
+                hold_depth = current_depth  # Update the target for PID
+            elif depth_hold and depth_received:
+                # Use PID only if no manual input
+                self.get_logger().info("PID activated")
+                twist_message.linear.z = self.depth_pid.compute(hold_depth, current_depth) # change to negative if positive Z makes ROV go down
+
+            else:
+                twist_message.linear.z = 0.0  # Neutral
 
             # Angular Motion - Just yaw for now
             twist_message.angular.x = 0.0
@@ -135,9 +213,12 @@ def main(args=None):
     controller_sub = ControllerSub()
     twist_pub = TwistPub()
     point_pub = PointPub()
+    bar02_sub = Bar02Sub()
+
     executor.add_node(controller_sub)
     executor.add_node(twist_pub)
     executor.add_node(point_pub)
+    executor.add_node(bar02_sub)
 
     # Launching the executor
     executor.spin()
@@ -146,6 +227,7 @@ def main(args=None):
     controller_sub.destroy_node()
     twist_pub.destroy_node()
     point_pub.destroy_node()
+    bar02_sub.destroy_node()
 
     # Shutting down the program
     rclpy.shutdown()

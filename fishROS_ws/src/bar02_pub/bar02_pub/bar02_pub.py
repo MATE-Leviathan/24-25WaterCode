@@ -17,8 +17,8 @@ class Bar02Pub(Node):
         # Creating the Publisher
         super().__init__('bar02_publisher')
         
-        # Initialize MS5837 sensor on I2C bus 0 (i.e., /dev/i2c-0)
-        self.sensor = ms5837.MS5837(ms5837.MODEL_02BA, 0)
+        # Initialize MS5837 sensor on I2C bus 1 (i.e., /dev/i2c-0)
+        self.sensor = ms5837.MS5837(ms5837.MODEL_02BA, 1)
         
         # Initialize sensor
         if not self.sensor.init():
@@ -48,7 +48,7 @@ class Bar02Pub(Node):
             self.depth_pub.publish(depth_msg)
             self.temp_pub.publish(temp_msg)
             
-            self.get_logger().info(f'Published depth: {depth:.3f} m, temp: {temp:.2f} °C')
+            #self.get_logger().info(f'Published depth: {depth:.3f} m, temp: {temp:.2f} °C')
             
         else:
             self.get_logger().warn("Failed to read from sensor")

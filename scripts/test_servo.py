@@ -16,14 +16,14 @@ pca = PCA9685(i2c_bus)
 pca.frequency = 450
 
 
-servo_pins = [5, 6, 7]
+servo_pins = [6, 7]
 servos = []
 
 for pin in servo_pins:
     servos.append(servo.Servo(pca.channels[pin], actuation_range=300))
 
 while True:
-    command = input("Enter a servo command (open/close/panic): ")
+    command = input("Enter a servo command (open/close/angle): ")
 
     if command == "open":
         for servo in servos:
@@ -32,4 +32,9 @@ while True:
         for servo in servos:
             servo.angle = 0
     else:
+        try:
+            for servo in servos:
+                servo.angle = int(command)
+        except:
+            pass
         break

@@ -14,7 +14,7 @@ setup(
         # Include our package.xml file
         (os.path.join('share', package_name), ['package.xml']),
         # Include all launch files.
-        (os.path.join('share', package_name, 'launch'), glob(os.path.join('launch', '*.launch.py'))),
+        (os.path.join('share', package_name, 'launch'), glob(os.path.join('launch', '*.py'))),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -25,7 +25,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
     'console_scripts': [
-        ''
+        'drivetrain_node = controller_node.twist_drivetrain:main',
+        'controller_node = controller_node.controller_sub:main'
         ],
     },
 )

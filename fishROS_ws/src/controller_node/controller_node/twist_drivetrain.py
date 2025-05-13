@@ -27,9 +27,9 @@ from geometry_msgs.msg import Point
 THRUSTER_PINS = [2, 3, 1, 0, 5, 4]
 CLAW_PINS = [6, 7]  # The last pin should be the one that controls opening/closing
 ONEOVERROOTTWO = 1 / math.sqrt(2)
-CONTROLLER_DEADZONE = 0.01
-THRUST_SCALE_FACTOR = 0.83375
-INITAL_CLAW_Y = 0
+CONTROLLER_DEADZONE = 0.05
+THRUST_SCALE_FACTOR = 0.6 #0.83375
+INITAL_CLAW_Y = 0 # should actually be x rotation but I'm too lazy to change it
 INITIAL_CLAW_Z = 0
 
 # Dynamic Global Variables
@@ -54,7 +54,7 @@ class DriveRunner(Node):
         # Initializing the thrusters
         self.thrusters = []
         for pin in THRUSTER_PINS:
-            self.thrusters.append(servo.Servo(self.pca.channels[pin], min_pulse=1141, max_pulse=1971))
+            self.thrusters.append(servo.Servo(self.pca.channels[pin], min_pulse=1340, max_pulse=1870))
 
         self.drivetrainInit()
 
@@ -71,6 +71,7 @@ class DriveRunner(Node):
         value = min(max(value, -1), 1)  # Keeping it in bounds
         value = value if value < 0 else value * THRUST_SCALE_FACTOR
         self.thrusters[index].angle = 90 * value + 90
+        #self.get_logger().info(f'Thruster {index}: {90 * value + 90}') 
 
     """
     Current Mapping 4/30/25:
@@ -83,6 +84,7 @@ class DriveRunner(Node):
     """
     
     def twist_callback(self, msg):
+        #self.get_logger().info(f'Recieved Twist: {msg}')   
         x = msg.linear.x
         y = msg.linear.y
         z = msg.linear.z
@@ -90,15 +92,15 @@ class DriveRunner(Node):
         z_rotation = msg.angular.z
         ### Horizontal Motor Writing
         if abs(x) > CONTROLLER_DEADZONE or abs(y) > CONTROLLER_DEADZONE: # Linear Movement in XY
-            self.set_thruster(5, ONEOVERROOTTWO * (x + y)) # RB
+            self.set_thruster(5, -ONEOVERROOTTWO * (x - y)) # RB
             self.set_thruster(0, ONEOVERROOTTWO * (x - y)) # LF
-            self.set_thruster(3, ONEOVERROOTTWO * (y - x)) # RF
+            self.set_thruster(3, -ONEOVERROOTTWO * (-y - x)) # RF
             self.set_thruster(2, ONEOVERROOTTWO * (-y - x)) # LB
         elif abs(z_rotation) > CONTROLLER_DEADZONE:  # Yaw (Spin)
-            self.set_thruster(5, -z_rotation)
-            self.set_thruster(0, z_rotation)
-            self.set_thruster(3, z_rotation)
-            self.set_thruster(2, -z_rotation)
+            self.set_thruster(5, z_rotation * 0.75)
+            self.set_thruster(0, z_rotation * 0.75)
+            self.set_thruster(3, -z_rotation * 0.75)
+            self.set_thruster(2, -z_rotation * 0.75)
         else:
             self.set_thruster(5, 0.0)
             self.set_thruster(0, 0.0)
@@ -153,25 +155,25 @@ class PointSub(Node):
         z = msg.z
 
         if y != 0.0:
-            self.y_angle += y
+            self.y_angle += 2*y
             self.get_logger().info(f'y_angle: {self.y_angle}')
             self.writeClawY()
         if z != 0.0:
-            self.z_angle += z
+            self.z_angle += 2*z
             self.get_logger().info(f'z_angle: {self.z_angle}')
             self.writeClawZ()
     
     def writeClawY(self):
-        self.y_angle = min(self.y_angle, 0)
-        self.y_angle = max(self.y_angle, 300)
+        self.y_angle = max(0, min(self.y_angle, 250)) # limits servo movement between 0 and 300
         self.servos[0].angle = int(self.y_angle)
+        self.get_logger().info(f'Rotation Servo: {self.y_angle}')
     
     def writeClawZ(self):
-        self.z_angle = min(self.z_angle, 0)
-        self.z_angle = max(self.z_angle, 300)
+        self.z_angle = max(10, min(self.z_angle, 250))
         # This should run them in opposite directions 4/30/25 no more need cuz only one servo for closing
         #self.servos[1].angle = 300 - int(self.z_angle)
         self.servos[1].angle = int(self.z_angle)
+        self.get_logger().info(f'Claw Servo: {self.z_angle}')        
 
 
 def main(args=None):
@@ -187,3 +189,14 @@ def main(args=None):
 
     # Starting the execution loop
     executor.spin()
+
+    # Destroying Nodes
+    drive_runner.destroy_node()
+    imu_sub.destroy_node()
+    point_sub.destroy_node()
+
+    # Shutting down the program
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()

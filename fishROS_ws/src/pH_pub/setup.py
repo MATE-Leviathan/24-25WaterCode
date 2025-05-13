@@ -20,6 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'pH_pub = pH_pub.pH_pub:main'
         ],
     },
 )
