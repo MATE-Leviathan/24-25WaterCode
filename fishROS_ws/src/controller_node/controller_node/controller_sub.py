@@ -1,5 +1,5 @@
 """
-Author(s): Everett Tucke
+Author(s): Everett Tucker, Larry Zhao
 Creation Date: 01/09/2024
 Description: Gets controller input from the joy publisher and send a twist message
 Subscribers: Joy
@@ -25,7 +25,7 @@ controller_init = False
 axes = []
 buttons = []
 sensitivity = 1
-depth_hold = False # if depth holding is on
+holding = False # if depth holding is on
 old_press = 0
 hold_depth = 0 # depth to hold
 current_depth = 0 # current rov depth
@@ -68,12 +68,7 @@ class ControllerSub(Node):
         Pad Vertical: 7 - up -> 1, down -> -1
         """
 
-        """
-        In my testing, I found that an angle of about 110 resulted in no motion
-        Whereas an angle of 90 resulted in slow forward motion.
-        """
-
-        global controller_init, axes, buttons, sensitivity, old_press, depth_hold, current_depth, hold_depth
+        global controller_init, axes, buttons, sensitivity, old_press, holding, current_depth, hold_depth
         axes = msg.axes
         buttons = msg.buttons
         controller_init = True
@@ -84,12 +79,13 @@ class ControllerSub(Node):
         if buttons[1] == 1:
             sensitivity = HIGH_SENSITIVITY
 
-        # Toggle state with X button
+        # Toggle holding with X button
         if buttons[2] == 1 and old_press == 0:
             old_press = 1
-            depth_hold = not depth_hold
-            if depth_hold:
+            holding = not holding
+            if holding:
                 hold_depth = current_depth
+            self.get_logger().info(f"Holding = {holding}")
         if buttons[2] == 0:
             old_press = 0
 
@@ -112,33 +108,21 @@ class Bar02Sub(Node):
 
 
 # PID for Depth Hold    
-class PIDController: # need to add a cap so that it doesn't go too far
+class PIDController: # PID with only the P
 
-    def __init__(self, kp, ki, kd):
+    def __init__(self, kp):
         self.kp = kp
-        self.ki = ki
-        self.kd = kd
-        self.integral = 0.0
-        self.prev_error = 0.0
-        self.prev_time = None
 
     def compute(self, setpoint, measurement):
-        current_time = time.time()
         error = setpoint - measurement
-        dt = current_time - self.prev_time if self.prev_time else 0.0
-
-        if dt > 0:
-            self.integral += error * dt
-            derivative = (error - self.prev_error) / dt
-        else:
-            derivative = 0.0
-
-        output = self.kp * error + self.ki * self.integral + self.kd * derivative
-        self.prev_error = error
-        self.prev_time = current_time
+        
+        if error > 5: # If outside of zone, use PID
+            output = self.kp * error
+        else: # If in zone, keep at hover constant
+            output = -0.3
 
         output = max(min(output, 1.0), -1.0)
-        self.get_logger().info(f"Error: {error} Output: {output}")
+        self.get_logger().info(f"PID Error: {error} Output: {output}")
         return output
 
 
@@ -147,8 +131,8 @@ class TwistPub(Node):
         # Creating the publisher
         super().__init__("twist_publisher")
         self.publisher = self.create_publisher(Twist, 'twist', 10)
-        self.depth_pid = PIDController(kp=2.0, ki=0.0, kd=0.0) # needs tuning
-        timer_period = 0.01  # The timer period is the same as the callback period
+        self.depth_pid = PIDController(kp=0.12) # needs tuning
+        timer_period = 0.02  # The timer period is the same as the callback period
         self.timer = self.create_timer(timer_period, self.publishTwist)
 
 
@@ -168,10 +152,10 @@ class TwistPub(Node):
                 linear_z = -(axes[5] - 1) / 2
 
             # If there's manual input, override PID and reset hold_depth
-            if abs(linear_z) > 0.05:
-                twist_message.linear.z = linear_z * sensitivity
+            if abs(linear_z) > 0.08: # Deadzone
+                twist_message.linear.z = linear_z
                 hold_depth = current_depth  # Update the target for PID
-            elif depth_hold and depth_received:
+            elif holding and depth_received:
                 # Use PID only if no manual input
                 self.get_logger().info("PID activated")
                 twist_message.linear.z = self.depth_pid.compute(hold_depth, current_depth) # change to negative if positive Z makes ROV go down
@@ -182,7 +166,7 @@ class TwistPub(Node):
             # Angular Motion - Just yaw for now
             twist_message.angular.x = 0.0
             twist_message.angular.y = 0.0
-            twist_message.angular.z = -axes[3] * sensitivity
+            twist_message.angular.z = -axes[3]
 
             self.publisher.publish(twist_message)
 
@@ -191,7 +175,7 @@ class PointPub(Node):
     def __init__(self):
         super().__init__("point_publisher")
         self.publisher = self.create_publisher(Point, "claw", 10)
-        timer_period = 0.01
+        timer_period = 0.02
         self.timer = self.create_timer(timer_period, self.publishPoint)
 
 
@@ -201,7 +185,7 @@ class PointPub(Node):
 
             point_message.x = 0.0  # Not needed, left as 0
             point_message.y = axes[6]  # Open/close claw
-            point_message.z = axes[7]  # Rotate claw
+            point_message.z = buttons[4] - buttons[5] # axes[7]  # Rotate claw
 
             self.publisher.publish(point_message)
 
