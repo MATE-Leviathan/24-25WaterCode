@@ -86,7 +86,7 @@ class ExploreHDPub(Node):
             
             # publishes the image converted to a ros message to the topic 'Image'
             self.publisher.publish(self.bridge.cv2_to_imgmsg(frame, "bgr8"))
-            self.get_logger().info("published frame")
+            #self.get_logger().info("published frame")
 
 
 def main(args=None):
