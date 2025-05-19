@@ -6,7 +6,7 @@ def generate_launch_description():
     return LaunchDescription([
         Node(
             package='controller_node',
-            namespace='controller_node',
+            namespace='',
             executable='controller_node'
             )])
 

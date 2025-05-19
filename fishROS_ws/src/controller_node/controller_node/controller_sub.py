@@ -85,13 +85,14 @@ class ControllerSub(Node):
             sensitivity = HIGH_SENSITIVITY
 
         # Toggle state with X button
-        if buttons[2] == 1 and old_press == 0:
-            old_press = 1
-            depth_hold = not depth_hold
-            if depth_hold:
-                hold_depth = current_depth
-        if buttons[2] == 0:
-            old_press = 0
+        # if buttons[2] == 1 and old_press == 0:
+        #     #self.get_logger().info("X Button Pressed")
+        #     old_press = 1
+        #     depth_hold = not depth_hold
+        #     if depth_hold:
+        #         hold_depth = current_depth
+        # if buttons[2] == 0:
+        #     old_press = 0
 
 
 class Bar02Sub(Node):
@@ -138,7 +139,7 @@ class PIDController: # need to add a cap so that it doesn't go too far
         self.prev_time = current_time
 
         output = max(min(output, 1.0), -1.0)
-        self.get_logger().info(f"Error: {error} Output: {output}")
+        print(f"Error: {error} Output: {output}")
         return output
 
 
@@ -171,11 +172,10 @@ class TwistPub(Node):
             if abs(linear_z) > 0.05:
                 twist_message.linear.z = linear_z * sensitivity
                 hold_depth = current_depth  # Update the target for PID
-            elif depth_hold and depth_received:
-                # Use PID only if no manual input
-                self.get_logger().info("PID activated")
-                twist_message.linear.z = self.depth_pid.compute(hold_depth, current_depth) # change to negative if positive Z makes ROV go down
-
+            # elif depth_hold and depth_received:
+            #     # Use PID only if no manual input
+            #     print("PID activated")
+            #     twist_message.linear.z = self.depth_pid.compute(hold_depth, current_depth)
             else:
                 twist_message.linear.z = 0.0  # Neutral
 
