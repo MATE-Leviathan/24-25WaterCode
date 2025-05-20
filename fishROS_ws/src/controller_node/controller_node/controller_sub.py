@@ -185,8 +185,8 @@ class PointPub(Node):
             point_message = Point()
 
             point_message.x = 0.0  # Not needed, left as 0
-            point_message.y = axes[6]  # Open/close claw
-            point_message.z = buttons[4] - buttons[5] # axes[7]  # Rotate claw
+            point_message.y = float(buttons[4] - buttons[5]) # axes[7]  # Rotate claw
+            point_message.z = axes[7]  # Open/close claw
 
             self.publisher.publish(point_message)
 

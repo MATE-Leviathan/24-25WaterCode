@@ -34,7 +34,7 @@ class ExploreHDPub(Node):
         None
     """
     def __init__(self):
-        super().__init__('minimal_publisher')
+        super().__init__('camera2_publisher')
         self.publisher = self.create_publisher(Image, 'Image2', 10)
         #self.get_logger().info(self.get_node_names_and_namespaces())
         self.declare_parameter('video_device_id', 0)
