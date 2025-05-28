@@ -1,4 +1,4 @@
-FROM osrf/ros:foxy-desktop
+FROM osrf/ros:humble-desktop
 
 COPY ./files/entrypoint.sh /
 RUN chmod a+x /entrypoint.sh
@@ -6,7 +6,7 @@ ENTRYPOINT ["/entrypoint.sh"]
 
 
 
-ARG WORKSPACE=foxy_dev_ws
+ARG WORKSPACE=humble_dev_ws
 # Grab the cross build basics and uninstall the web browser to save ~ 250MB of space: 
 RUN apt update &&\
     apt install -y \
@@ -41,7 +41,7 @@ ENV NVIDIA_VISIBLE_DEVICES \
 ENV EDITOR=code
 # ENV XDG_RUNTIME_DIR=/tmp
 # I removed gazebo
-# I added rosbridge-suite to connect to foxglove. Remove when switching to Humble.
+# I added foxglove-bridge to connect to foxglove
 RUN apt-get update && apt-get install -y \
     cmake \
     curl \
@@ -49,25 +49,25 @@ RUN apt-get update && apt-get install -y \
     nano \
     python3-pip \
     python3-pydantic \
-    ros-foxy-gazebo-ros \
-    ros-foxy-gazebo-ros-pkgs \
-    ros-foxy-joint-state-publisher \
-    ros-foxy-robot-localization \
-    ros-foxy-plotjuggler-ros \
-    ros-foxy-robot-state-publisher \
-    ros-foxy-ros2bag \
-    ros-foxy-rosbag2-storage-default-plugins \
-    ros-foxy-rqt-tf-tree \
-    ros-foxy-rmw-fastrtps-cpp \
-    ros-foxy-rmw-cyclonedds-cpp \
-    ros-foxy-slam-toolbox \
-    ros-foxy-turtlebot3 \
-    ros-foxy-turtlebot3-msgs \
-    ros-foxy-twist-mux \
-    ros-foxy-usb-cam \
-    ros-foxy-joy-linux \
-    ros-foxy-xacro \
-    ros-foxy-rosbridge-suite \
+    ros-humble-gazebo-ros \
+    ros-humble-gazebo-ros-pkgs \
+    ros-humble-joint-state-publisher \
+    ros-humble-robot-localization \
+    #ros-foxy-plotjuggler-ros \                  doesn't have in Humble
+    ros-humble-robot-state-publisher \
+    ros-humble-ros2bag \
+    ros-humble-rosbag2-storage-default-plugins \
+    ros-humble-rqt-tf-tree \
+    ros-humble-rmw-fastrtps-cpp \
+    ros-humble-rmw-cyclonedds-cpp \
+    ros-humble-slam-toolbox \
+    ros-humble-turtlebot3 \
+    ros-humble-turtlebot3-msgs \
+    ros-humble-twist-mux \
+    ros-humble-usb-cam \
+    ros-humble-joy-linux \
+    ros-humble-xacro \
+    ros-humble-foxglove-bridge \
     ruby-dev \
     rviz \
     tmux \
@@ -101,10 +101,10 @@ RUN apt update &&\
 #     rm -f urdf-viz-x86_64-unknown-linux-gnu.tar.gz
 # 
 
-RUN echo "source /opt/ros/foxy/setup.bash" >> /home/ubuntu/.bashrc
+RUN echo "source /opt/ros/humble/setup.bash" >> /home/ubuntu/.bashrc
 RUN echo "source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash" >> /home/ubuntu/.bashrc
 RUN echo "source /usr/share/colcon_cd/function/colcon_cd.sh" >> /home/ubuntu/.bashrc
-RUN echo "export _colcon_cd_root=/opt/ros/foxy/" >> /home/ubuntu/.bashrc
+RUN echo "export _colcon_cd_root=/opt/ros/humble/" >> /home/ubuntu/.bashrc
 RUN echo "source /home/ubuntu/24-25WaterCode/scripts/command_aliases.sh" >> /home/ubuntu/.bashrc
 
 # RUN apt-get autoremove -y \
@@ -113,7 +113,7 @@ RUN echo "source /home/ubuntu/24-25WaterCode/scripts/command_aliases.sh" >> /hom
 # 
 # RUN echo "export DISABLE_AUTO_TITLE=true" >> /root/.zshrc
 # RUN echo 'LC_NUMERIC="en_US.UTF-8"' >> /root/.zshrc
-# RUN echo "source /opt/ros/foxy/setup.zsh" >> /root/.zshrc
+# RUN echo "source /opt/ros/humble/setup.zsh" >> /root/.zshrc
 # RUN echo "source /usr/share/gazebo/setup.sh" >> /root/.zshrc
 # 
 # RUN echo 'alias rosdi="rosdep install --from-paths src --ignore-src --rosdistro=${ROS_DISTRO} -y"' >> /root/.zshrc

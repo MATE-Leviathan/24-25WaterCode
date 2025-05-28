@@ -12,4 +12,4 @@ docker run "$@" -it --net=host -v  /tmp/.X11-unix:/tmp/.X11-unix \
  --ipc=host \
  -v /dev:/dev --privileged \
  --shm-size=8G \
- -e DISPLAY=$DISPLAY  --user ubuntu mate2025:latest /bin/bash
+ -e DISPLAY=$DISPLAY  --user ubuntu mate2025:humble /bin/bash
