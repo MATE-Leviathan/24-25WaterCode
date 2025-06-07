@@ -15,6 +15,7 @@ from sensor_msgs.msg import Joy
 from geometry_msgs.msg import Twist
 from geometry_msgs.msg import Point
 from std_msgs.msg import Float32
+from std_msgs.msg import Bool
 
 # Static global variables
 LOW_SENSITIVITY = 0.5  # This is basically how much inputs are scaled when in sensitive mode
@@ -27,9 +28,6 @@ buttons = []
 sensitivity = 1
 holding = False # if depth holding is on
 old_press = 0
-hold_depth = 0 # depth to hold
-current_depth = 0 # current rov depth
-depth_received = False
 
 
 class ControllerSub(Node):
@@ -38,6 +36,7 @@ class ControllerSub(Node):
         # Creating the subscriber
         super().__init__('controller_subscriber')
         self.subscription = self.create_subscription(Joy, 'joy', self.listener_callback, 10)
+        self.hold_pub = self.create_publisher(Bool, 'stabilization_toggle', 10) # Bool publisher to toggle depth hold
 
     def listener_callback(self, msg):
         """
@@ -84,55 +83,19 @@ class ControllerSub(Node):
             print("X Button Pressed")
             old_press = 1
             holding = not holding
-            if holding:
-                hold_depth = current_depth
             print(f"Holding = {holding}")
+            
+            # Publish toggle state
+            self.hold_pub.publish(Bool(data=holding))
+            
         if buttons[2] == 0:
             old_press = 0
-
-
-class Bar02Sub(Node):
-
-    def __init__(self):
-        super().__init__('bar02depth_subscriber')
-        self.subscription = self.create_subscription(
-            Float32,
-            'bar02/depth',
-            self.listener_callback,
-            10)
-
-    def listener_callback(self, msg):
-        global current_depth, depth_received
-
-        current_depth = msg.data
-        depth_received = True
-
-
-# PID for Depth Hold    
-class PIDController: # PID with only the P
-
-    def __init__(self, kp):
-        self.kp = kp
-
-    def compute(self, setpoint, measurement):
-        error = setpoint - measurement
-        
-        if error > 5: # If outside of zone, use PID
-            output = self.kp * error
-        else: # If in zone, keep at hover constant
-            output = -0.3
-
-        output = max(min(output, 1.0), -1.0)
-        print(f"Error: {error} Output: {output}")
-        return output
-
 
 class TwistPub(Node):
     def __init__(self):
         # Creating the publisher
         super().__init__("twist_publisher")
         self.publisher = self.create_publisher(Twist, 'twist', 10)
-        self.depth_pid = PIDController(kp=0.12) # needs tuning
         timer_period = 0.02  # The timer period is the same as the callback period
         self.timer = self.create_timer(timer_period, self.publishTwist)
 
@@ -152,17 +115,10 @@ class TwistPub(Node):
             else:
                 linear_z = -(axes[5] - 1) / 2
 
-            # If there's manual input, override PID and reset hold_depth
             if abs(linear_z) > 0.08: # Deadzone
                 twist_message.linear.z = linear_z
-                hold_depth = current_depth  # Update the target for PID
-            elif holding and depth_received:
-                # Use PID only if no manual input
-                print("PID activated")
-                twist_message.linear.z = self.depth_pid.compute(hold_depth, current_depth) # change to negative if positive Z makes ROV go down
-
             else:
-                twist_message.linear.z = 0.0  # Neutral
+                twist_message.linear.z = 0.0
 
             # Angular Motion - Just yaw for now
             twist_message.angular.x = 0.0
@@ -198,12 +154,10 @@ def main(args=None):
     controller_sub = ControllerSub()
     twist_pub = TwistPub()
     point_pub = PointPub()
-    bar02_sub = Bar02Sub()
 
     executor.add_node(controller_sub)
     executor.add_node(twist_pub)
     executor.add_node(point_pub)
-    executor.add_node(bar02_sub)
 
     # Launching the executor
     executor.spin()
@@ -212,7 +166,6 @@ def main(args=None):
     controller_sub.destroy_node()
     twist_pub.destroy_node()
     point_pub.destroy_node()
-    bar02_sub.destroy_node()
 
     # Shutting down the program
     rclpy.shutdown()
