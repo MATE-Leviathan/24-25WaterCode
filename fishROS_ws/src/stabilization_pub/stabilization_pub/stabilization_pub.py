@@ -50,7 +50,7 @@ class StabilizationPub(Node):
         self.publisher = self.create_publisher(Twist, 'stabilization', 10)
         
         # Timer
-        self.create_timer(0.05, self.control_loop)  # 20 Hz
+        self.create_timer(0.04, self.control_loop)  # 25 Hz
         
         
     # Toggles on and Off
@@ -72,10 +72,9 @@ class StabilizationPub(Node):
 
         if abs(self.manual_z_input) > 0.08:
             # Manual override detected
+            self.get_logger().info('Manual Override Detected')
             self.last_manual_input_time = self.get_clock().now()
-            # Do not update target depth *yet* — wait until user stops moving
 
-    
     # PID control loop
     def control_loop(self):
         # Toggle

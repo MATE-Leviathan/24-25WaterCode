@@ -96,7 +96,7 @@ class TwistPub(Node):
         # Creating the publisher
         super().__init__("twist_publisher")
         self.publisher = self.create_publisher(Twist, 'twist', 10)
-        timer_period = 0.02  # The timer period is the same as the callback period
+        timer_period = 0.02  # 50 Hz
         self.timer = self.create_timer(timer_period, self.publishTwist)
 
 

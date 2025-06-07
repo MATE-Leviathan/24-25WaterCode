@@ -46,7 +46,10 @@ class DriveRunner(Node):
         super().__init__("drive_runner")
         self.twist_sub = self.create_subscription(Twist, "twist", self.twist_callback, 10)
         self.stab_sub = self.create_subscription(Twist, "stabilization", self.stabilization_callback, 10)
+        
         self.stabilization = 0.0
+        self.last_stabilization_time = self.get_clock().now()
+        self.stabilization_timeout_sec = 0.5
         
         # Initializing the PCA Board
         i2c_bus = busio.I2C(SCL, SDA)
@@ -116,12 +119,17 @@ class DriveRunner(Node):
         elif abs(x_rotation) > CONTROLLER_DEADZONE:  # Roll
             self.set_thruster(1, x_rotation)
             self.set_thruster(4, -x_rotation)
-        else:
+        # Depth Hover with timeout
+        elif (self.get_clock().now() - self.last_stabilization_time).nanoseconds * 1e-9 < self.stabilization_timeout_sec:
             self.set_thruster(1, self.stabilization)
             self.set_thruster(4, self.stabilization)
+        else:
+            self.set_thruster(1, 0.0)
+            self.set_thruster(4, 0.0)
 
     def stabilization_callback(self, msg: Twist):
         self.stabilization = msg.linear.z
+        self.last_stabilization_time = self.get_clock().now()
 
 class IMUSub(Node):
     def __init__(self):
