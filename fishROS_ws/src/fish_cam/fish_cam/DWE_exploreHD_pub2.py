@@ -85,7 +85,6 @@ class ExploreHDPub(Node):
         # if frame is read correctly ret is True
         if not ret:
             self.get_logger().error("Unable to read frame from camera")
-            break
         
         # publishes the image converted to a ros message to the topic 'Image'
         self.publisher.publish(self.bridge.cv2_to_imgmsg(frame, "bgr8"))
