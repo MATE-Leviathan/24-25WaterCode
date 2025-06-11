@@ -29,8 +29,9 @@ class StabilizationPub(Node):
         self.last_manual_input_time = self.get_clock().now()
         self.manual_input_timeout = 0.5  # seconds to wait before re-engaging auto-hold
 
-        self.status = 0 # 0 = Off, 1 = On, 2 = Manual Override
-        
+        self.status = Int32() 
+        self.status.data = 0 # 0 = Off, 1 = On, 2 = Manual Override
+
         # Subscribers
         self.depthSub = self.create_subscription(
             Float32, 
@@ -63,10 +64,10 @@ class StabilizationPub(Node):
         if self.depth_hold_enabled:
             self.target_depth = self.current_depth
             self.get_logger().info(f'Depth hold ENABLED. Target depth set to {self.target_depth:.2f} m')
-            self.status = 1
+            self.status.data = 1
         else:
             self.get_logger().info('Depth hold DISABLED')
-            self.status = 0
+            self.status.data = 0
             
     # Get data from depth sensor
     def depth_callback(self, msg: Float32):
@@ -79,7 +80,7 @@ class StabilizationPub(Node):
         if abs(self.manual_z_input) > 0.08:
             # Manual override detected
             #self.get_logger().info('Manual Override Detected')
-            self.status = 2
+            self.status.data = 2
             self.last_manual_input_time = self.get_clock().now()
 
     # PID control loop
