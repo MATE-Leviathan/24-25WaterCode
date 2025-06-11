@@ -55,6 +55,8 @@ class ExploreHDPub(Node):
         if not self.cap.isOpened():
             print("Cannot open camera")
             exit()
+        
+        self.timer = self.create_timer(0.05, self.publish_image)
 
 
     """
@@ -71,28 +73,30 @@ class ExploreHDPub(Node):
         Does not raise but will log error if unable to read frame from camera
     """
     def publish_image(self):
-        # essetnially while True but is ros shutdown safe
-        while rclpy.ok():
-            # Capture frame-by-frame
-            ret, frame = self.cap.read()
-
-            # Resizing
-
-            # frame = imutils.resize(frame, width=1920, height=1080)
-            # if frame is read correctly ret is True
-            if not ret:
-                self.get_logger().error("Unable to read frame from camera")
-                break
+        # # essetnially while True but is ros shutdown safe
+        # while rclpy.ok():
             
-            # publishes the image converted to a ros message to the topic 'Image'
-            self.publisher.publish(self.bridge.cv2_to_imgmsg(frame, "bgr8"))
+        # Capture frame-by-frame
+        ret, frame = self.cap.read()
+
+        # Resizing
+
+        # frame = imutils.resize(frame, width=1920, height=1080)
+        # if frame is read correctly ret is True
+        if not ret:
+            self.get_logger().error("Unable to read frame from camera")
+            break
+        
+        # publishes the image converted to a ros message to the topic 'Image'
+        self.publisher.publish(self.bridge.cv2_to_imgmsg(frame, "bgr8"))
 
 
 def main(args=None):
     rclpy.init(args=args)
     minimal_publisher = ExploreHDPub()
-    minimal_publisher.publish_image()
+    #minimal_publisher.publish_image()
     rclpy.spin(minimal_publisher)
+
     minimal_publisher.destroy_node()
     rclpy.shutdown()
 
