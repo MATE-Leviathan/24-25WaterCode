@@ -9,7 +9,7 @@ Publishers: Twist
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
-from std_msgs.msg import Bool, Float32
+from std_msgs.msg import Bool, Float32, Int32
 
 class StabilizationPub(Node):
     def __init__(self):
@@ -28,6 +28,8 @@ class StabilizationPub(Node):
         self.manual_z_input = 0.0
         self.last_manual_input_time = self.get_clock().now()
         self.manual_input_timeout = 0.5  # seconds to wait before re-engaging auto-hold
+
+        self.status = 0 # 0 = Off, 1 = On, 2 = Manual Override
         
         # Subscribers
         self.depthSub = self.create_subscription(
@@ -47,10 +49,12 @@ class StabilizationPub(Node):
             10)
         
         # Publishers
-        self.publisher = self.create_publisher(Twist, 'stabilization', 10)
+        self.stab_pub = self.create_publisher(Twist, 'stabilization', 10)
+        self.status_pub = self.create_publisher(Int32, 'stabilization_status', 10)
         
         # Timer
         self.create_timer(0.04, self.control_loop)  # 25 Hz
+        self.create_timer(0.10, self.status_loop) # 10 Hz
         
         
     # Toggles on and Off
@@ -59,8 +63,10 @@ class StabilizationPub(Node):
         if self.depth_hold_enabled:
             self.target_depth = self.current_depth
             self.get_logger().info(f'Depth hold ENABLED. Target depth set to {self.target_depth:.2f} m')
+            self.status = 1
         else:
             self.get_logger().info('Depth hold DISABLED')
+            self.status = 0
             
     # Get data from depth sensor
     def depth_callback(self, msg: Float32):
@@ -72,7 +78,8 @@ class StabilizationPub(Node):
 
         if abs(self.manual_z_input) > 0.08:
             # Manual override detected
-            self.get_logger().info('Manual Override Detected')
+            #self.get_logger().info('Manual Override Detected')
+            self.status = 2
             self.last_manual_input_time = self.get_clock().now()
 
     # PID control loop
@@ -94,7 +101,7 @@ class StabilizationPub(Node):
             # Publish zero command to indicate "no stabilization right now"
             twist = Twist()
             twist.linear.z = 0.0
-            self.publisher.publish(twist)
+            self.stab_pub.publish(twist)
             return
 
         error = self.target_depth - self.current_depth
@@ -108,8 +115,10 @@ class StabilizationPub(Node):
             output = self.kp * error
             twist.linear.z = max(-self.max_thrust, min(self.max_thrust, output))  # clamp
 
-        self.publisher.publish(twist)
+        self.stab_pub.publish(twist)
 
+    def stabilization_status(self):
+        self.status_pub.publish(self.status)
 
 def main(args=None):
     rclpy.init(args=args)

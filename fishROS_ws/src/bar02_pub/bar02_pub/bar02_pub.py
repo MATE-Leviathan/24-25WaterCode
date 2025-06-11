@@ -9,7 +9,7 @@ Publishers: Depth and External Temp
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32
-import ms5837
+from bar02_pub import ms5837
 
 class Bar02Pub(Node):
 
