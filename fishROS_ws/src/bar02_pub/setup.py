@@ -20,6 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'bar02_pub = bar02_pub.bar02_pub:main'
         ],
     },
 )

@@ -20,6 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'stabilization_pub = stabilization_pub.stabilization_pub:main'
         ],
     },
 )

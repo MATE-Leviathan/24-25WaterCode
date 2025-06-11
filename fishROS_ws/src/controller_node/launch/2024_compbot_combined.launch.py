@@ -39,15 +39,6 @@ def generate_launch_description():
             '/controller_launch.py'
         ])
     )
-
-
-    ''' 
-    imu_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([os.path.join(
-            get_package_share_directory('launch_tutorial'), 'launch'),
-            '/turtlesim_world_1_launch.py'])
-    )
-    '''
     
     return LaunchDescription([
         joy_launch,

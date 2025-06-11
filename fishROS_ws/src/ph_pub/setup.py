@@ -1,6 +1,6 @@
 from setuptools import setup
 
-package_name = 'pH_pub'
+package_name = 'ph_pub'
 
 setup(
     name=package_name,
@@ -20,7 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'pH_pub = pH_pub.pH_pub:main'
+            'ph_pub = ph_pub.ph_pub:main'
         ],
     },
 )
