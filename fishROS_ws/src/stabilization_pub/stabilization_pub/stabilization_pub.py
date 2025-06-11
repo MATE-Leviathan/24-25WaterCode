@@ -117,7 +117,7 @@ class StabilizationPub(Node):
 
         self.stab_pub.publish(twist)
 
-    def stabilization_status(self):
+    def status_loop(self):
         self.status_pub.publish(self.status)
 
 def main(args=None):
