@@ -110,11 +110,11 @@ class StabilizationPub(Node):
         twist = Twist()
 
         # Apply deadzone
-        if abs(error) < self.deadzone:
-            twist.linear.z = self.deadzone_thrust
-        else:
-            output = self.kp * error
-            twist.linear.z = max(-self.max_thrust, min(self.max_thrust, output))  # clamp
+        #if abs(error) < self.deadzone:
+        #    twist.linear.z = self.deadzone_thrust
+        #else:
+        output = self.kp * error
+        twist.linear.z = max(-self.max_thrust, min(self.max_thrust, output))  # clamp
 
         self.stab_pub.publish(twist)
 
