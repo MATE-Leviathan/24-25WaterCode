@@ -16,10 +16,10 @@ class StabilizationPub(Node):
         super().__init__('stabilization_node')
         
         # Parameters
-        self.kp = -0.5  # Proportional gain, negative because going down increases depth
-        self.deadzone = 0.05 # deadzone in meters
-        self.deadzone_thrust = -0.4 # thrust when in deadzone
-        self.max_thrust = 0.6  # Max value of twist message
+        self.kp = -1  # Proportional gain, negative because going down increases depth
+        # self.deadzone = 0.05 # deadzone in meters
+        # self.deadzone_thrust = -0.2 # thrust when in deadzone
+        self.max_thrust = 0.7  # Max value of twist message
         
         self.depth_hold_enabled = False
         self.target_depth = None
@@ -64,10 +64,8 @@ class StabilizationPub(Node):
         if self.depth_hold_enabled:
             self.target_depth = self.current_depth
             self.get_logger().info(f'Depth hold ENABLED. Target depth set to {self.target_depth:.2f} m')
-            self.status.data = 1
         else:
             self.get_logger().info('Depth hold DISABLED')
-            self.status.data = 0
             
     # Get data from depth sensor
     def depth_callback(self, msg: Float32):
@@ -80,17 +78,18 @@ class StabilizationPub(Node):
         if abs(self.manual_z_input) > 0.08:
             # Manual override detected
             #self.get_logger().info('Manual Override Detected')
-            self.status.data = 2
             self.last_manual_input_time = self.get_clock().now()
 
     # PID control loop
     def control_loop(self):
         # Toggle
         if not self.depth_hold_enabled:
+            self.status.data = 0
             return
         
         # Override depth hold
         if abs(self.manual_z_input) > 0.08:
+            self.status.data = 2
             return
         
         time_since_input = (self.get_clock().now() - self.last_manual_input_time).nanoseconds / 1e9
@@ -104,6 +103,7 @@ class StabilizationPub(Node):
             twist.linear.z = 0.0
             self.stab_pub.publish(twist)
             return
+        self.status.data = 1
 
         error = self.target_depth - self.current_depth
 

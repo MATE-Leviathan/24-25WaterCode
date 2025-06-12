@@ -78,7 +78,7 @@ class ControllerSub(Node):
         if buttons[1] == 1:
             sensitivity = HIGH_SENSITIVITY
 
-        # Toggle holding with X button
+        # Toggle depth holding with X button
         if buttons[2] == 1 and old_press == 0:
             print("X Button Pressed")
             old_press = 1
@@ -123,7 +123,7 @@ class TwistPub(Node):
             # Angular Motion - Just yaw for now
             twist_message.angular.x = 0.0
             twist_message.angular.y = 0.0
-            twist_message.angular.z = -axes[3]
+            twist_message.angular.z = -axes[3] * 0.8 * sensitivity
 
             self.publisher.publish(twist_message)
 
