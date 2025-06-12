@@ -36,7 +36,7 @@ class Bar02Pub(Node):
 
     def timer_callback(self):
         if self.sensor.read(ms5837.OSR_2048):
-            depth = self.sensor.depth()  # in meters, fluid density is freshwater by default
+            depth = round(self.sensor.depth(), 3)  # in meters, fluid density is freshwater by default
             temp = self.sensor.temperature()  # in °C
             
             depth_msg = Float32()
