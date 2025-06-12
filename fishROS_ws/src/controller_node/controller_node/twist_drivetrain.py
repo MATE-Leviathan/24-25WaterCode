@@ -28,7 +28,7 @@ THRUSTER_PINS = [2, 3, 1, 0, 5, 4]
 CLAW_PINS = [6, 7]  # The last pin should be the one that controls opening/closing
 ONEOVERROOTTWO = 1 / math.sqrt(2)
 CONTROLLER_DEADZONE = 0.05
-THRUST_SCALE_FACTOR = 0.6 #0.83375
+THRUST_SCALE_FACTOR = 0.8 #0.6 #0.83375
 INITAL_CLAW_Y = 0 # should actually be x rotation but I'm too lazy to change it
 INITIAL_CLAW_Z = 0
 
