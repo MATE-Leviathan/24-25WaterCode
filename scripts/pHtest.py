@@ -15,6 +15,6 @@ channel = AnalogIn(ads, ADS.P3)
 
 # Read and Print Voltage
 while True:
-    voltage = channel.voltage  # Get voltage reading
+    voltage = round(channel.voltage, 3)  # Get voltage reading
     print(voltage, 'V', (-5.98*voltage)+16.1, 'pH')
     time.sleep(1)

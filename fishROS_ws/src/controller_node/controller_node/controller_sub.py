@@ -18,7 +18,7 @@ from std_msgs.msg import Float32
 from std_msgs.msg import Bool
 
 # Static global variables
-LOW_SENSITIVITY = 0.5  # This is basically how much inputs are scaled when in sensitive mode
+LOW_SENSITIVITY = 0.65  # This is basically how much inputs are scaled when in sensitive mode
 HIGH_SENSITIVITY = 1
 
 # Global dynamic variables
