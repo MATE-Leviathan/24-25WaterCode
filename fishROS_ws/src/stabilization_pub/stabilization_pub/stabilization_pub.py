@@ -16,7 +16,7 @@ class StabilizationPub(Node):
         super().__init__('stabilization_node')
         
         # Parameters
-        self.kp = 1  # Proportional gain, negative because going down increases depth
+        self.kp = 3  # Proportional gain, negative because going down increases depth
         # self.deadzone = 0.05 # deadzone in meters
         # self.deadzone_thrust = -0.2 # thrust when in deadzone
         self.max_thrust = 0.7  # Max value of twist message
@@ -114,7 +114,7 @@ class StabilizationPub(Node):
         #if abs(error) < self.deadzone:
         #    twist.linear.z = self.deadzone_thrust
         #else:
-        output = self.kp * error
+        output = self.kp * error + 0.30
         twist.linear.z = max(-self.max_thrust, min(self.max_thrust, output))  # clamp
 
         self.stab_pub.publish(twist)
