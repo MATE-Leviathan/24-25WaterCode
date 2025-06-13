@@ -40,7 +40,7 @@ class PHPub(Node):
             msg.data = round((-5.98*voltage)+16.1, 3) # pH from voltage
             
             self.publisher_.publish(msg)
-            self.get_logger().info(f'Published pH: {msg.data:.3f}')
+            #self.get_logger().info(f'Published pH: {msg.data:.3f}')
         except Exception as e:
             self.get_logger().error(f'Failed to read pH sensor: {e}')
 
