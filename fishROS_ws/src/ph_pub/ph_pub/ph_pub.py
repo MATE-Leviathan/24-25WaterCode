@@ -37,7 +37,7 @@ class PHPub(Node):
             voltage = self.channel.voltage  # Get voltage reading
             
             msg = Float32()
-            msg.data = (-5.98*voltage)+16.1 # pH from voltage
+            msg.data = round((-5.98*voltage)+16.1, 3) # pH from voltage
             
             self.publisher_.publish(msg)
             self.get_logger().info(f'Published pH: {msg.data:.3f}')
