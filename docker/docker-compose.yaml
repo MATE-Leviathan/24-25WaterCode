@@ -1,0 +1,18 @@
+services:
+  leviathan:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ipc: host
+    container_name: leviathan
+    environment:
+      - DISPLAY=${DISPLAY}
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ../../24-25WaterCode:/home/ubuntu/.24-25WaterCode.readonly
+      - /dev:/dev
+    privileged: true
+    network_mode: host
+    shm_size: '8gb'
+    user: ubuntu
+    command: tail -f /dev/null
