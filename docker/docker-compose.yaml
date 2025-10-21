@@ -16,3 +16,52 @@ services:
     shm_size: '8gb'
     user: ubuntu
     command: tail -f /dev/null
+  holoocean:
+    profiles:
+      - holoocean
+    image: frostlab/holoocean:2.0-dev-ubuntu22.04-cuda12.4-ros
+    build:
+      context: ../../holoocean-ros/docker/dev
+      dockerfile: Dockerfile
+    container_name: holoocean-ros
+    runtime: nvidia
+    user: ue4
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - DISPLAY=${DISPLAY}
+    volumes:
+      - ../../HoloOcean/client:/home/ue4/holoocean_client  # Mount the client directory
+      - ~/.local/share/holoocean:/home/ue4/.local/share/holoocean  # Mount the local share directory for persistent world installation
+      - ../../holoocean-ros:/home/ue4/ros2_ws/src/holoocean-ros
+      - ../../holoocean-ros/docker/dev/entrypoint.sh:/home/ue4/entrypoint.sh  # Mount the entrypoint script
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - $HOME/.Xauthority:/root/.Xauthority:rw
+      - ../../holoocean-ros/config:/home/ue4/config  # Mount the config directory
+      - /dev:/dev     # mount the dev folder for devices and using /dev/shm for ros2 inter device communication
+    privileged: true    # Allow connection to bluetooth xbox controller
+    entrypoint: /home/ue4/entrypoint.sh
+    network_mode: host  # Connect to host network for ROS interfaces outside of the container
+  holoocean-no-nvidia:
+    profiles:
+      - holoocean-no-nvidia
+    image: frostlab/holoocean:2.0-dev-ubuntu22.04-cuda12.4-ros
+    build:
+      context: ../../holoocean-ros/docker/dev
+      dockerfile: Dockerfile
+    container_name: holoocean-ros
+    user: ue4
+    environment:
+      - DISPLAY=${DISPLAY}
+    volumes:
+      - ../../HoloOcean/client:/home/ue4/holoocean_client
+      - ~/.local/share/holoocean:/home/ue4/.local/share/holoocean
+      - ../../holoocean-ros:/home/ue4/ros2_ws/src/holoocean-ros
+      - ../../holoocean-ros/docker/dev/entrypoint.sh:/home/ue4/entrypoint.sh
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - $HOME/.Xauthority:/root/.Xauthority:rw
+      - ../../holoocean-ros/config:/home/ue4/config
+      - /dev:/dev
+    privileged: true
+    entrypoint: /home/ue4/entrypoint.sh
+    network_mode: host
