@@ -6,6 +6,6 @@ def generate_launch_description():
     return LaunchDescription([
         Node(
             package='imu_publisher',
-            node_namespace='imu_pub',
-            node_executable='imu_pub.py',
-            node_name='imu_pub')])
+            namespace='imu_pub',
+            executable='imu_pub.py',
+            name='imu_pub')])

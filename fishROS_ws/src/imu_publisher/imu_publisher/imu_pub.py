@@ -15,18 +15,19 @@ import time
 import adafruit_bno055
 import tf_transformations
 from rclpy.node import Node
-from sensor_msgs import Imu
-from geometry_msgs import Quaternion
+from sensor_msgs.msg import Imu
+from geometry_msgs.msg import Quaternion
 
+from board import SCL, SDA
 
-class IMUPub():
+class IMUPub(Node):
 
     def __init__(self):
         # Creating the sensor
 
         # There are some special arguments that go in this function
-        i2c = busio.I2C()
-        self.sensor = adafruit_bno055.BNO055_I2C(i2c, address=0x28)
+        self.i2c = busio.I2C(SCL, SDA)
+        self.sensor = adafruit_bno055.BNO055_I2C(self.i2c, address=0x28)
 
         # Creating the Publisher
         super().__init__("imu_publisher")
@@ -36,20 +37,26 @@ class IMUPub():
         self.timer = self.create_timer(timer_period, self.publishIMU)
     
 
-    def publishIMU():
+    def publishIMU(self):
         msg = Imu()
         data = self.sensor.euler
-        msg.orientation = tf_transformations.quaterion_from_euler(data[0], data[1], data[2])
+        print(data[0], data[1], data[2])
+        quaternion_msg = Quaternion()
+        # roll, pitch, yaw
+        q = tf_transformations.quaternion_from_euler(data[0], data[1], data[2])
 
-        # This needs more work and some debugging before it is good
-
+        quaternion_msg.x = q[0]
+        quaternion_msg.y = q[1]
+        quaternion_msg.z = q[2]
+        quaternion_msg.w = q[3]
+        msg.orientation = quaternion_msg
         self.publisher.publish(msg)
 
 
 def main():
-    rclpy.init(args=args)
+    rclpy.init()
     imu_publisher = IMUPub()
-    rclpy.spin(imu_publisher)
+    rclpy.spin(imu_publisher) #imu_publisher
     imu_publisher.destroy_node()
     rclpy.shutdown()
 
