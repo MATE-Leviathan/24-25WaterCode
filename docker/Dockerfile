@@ -106,6 +106,7 @@ RUN echo "source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash" >> 
 RUN echo "source /usr/share/colcon_cd/function/colcon_cd.sh" >> /home/ubuntu/.bashrc
 RUN echo "export _colcon_cd_root=/opt/ros/humble/" >> /home/ubuntu/.bashrc
 RUN echo "source /home/ubuntu/24-25WaterCode/scripts/command_aliases.sh" >> /home/ubuntu/.bashrc
+RUN echo 'export PS1="\[\e[1;36m\]Fish\[\e[1;35m\]ROS \[\e[1;32m\]\w\[\e[0m\] -> "' >> /home/ubuntu/.bashrc
 
 # RUN apt-get autoremove -y \
 #     && apt-get clean -y \

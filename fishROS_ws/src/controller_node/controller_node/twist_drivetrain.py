@@ -24,7 +24,7 @@ from geometry_msgs.msg import Vector3
 from geometry_msgs.msg import Point
 
 # Final Global Variables
-THRUSTER_PINS = [2, 3, 1, 0, 5, 4]
+THRUSTER_PINS = [2, 3, 1, 0, 4, 5]
 CLAW_PINS = [6, 7]  # The last pin should be the one that controls opening/closing
 ONEOVERROOTTWO = 1 / math.sqrt(2)
 CONTROLLER_DEADZONE = 0.05
@@ -55,11 +55,14 @@ class DriveRunner(Node):
         i2c_bus = busio.I2C(SCL, SDA)
         self.pca = PCA9685(i2c_bus)
         self.pca.frequency = 450
+        self.pca.channels[0].duty_cycle = 0xFFFF
 
         # Initializing the thrusters
         self.thrusters = []
         for pin in THRUSTER_PINS:
-            self.thrusters.append(servo.Servo(self.pca.channels[pin], min_pulse=1340, max_pulse=1870))
+            #self.thrusters.append(servo.Servo(self.pca.channels[pin], min_pulse=1340, max_pulse=1870))
+            self.thrusters.append(servo.Servo(self.pca.channels[pin], min_pulse=1141, max_pulse=1971))
+            self.get_logger().info(f'Using 1141 to 1971')   
 
         self.drivetrainInit()
 
@@ -69,14 +72,18 @@ class DriveRunner(Node):
         print("Initializing Thrusters... Spam the Controller!")
         for i in range(6):
             self.set_thruster(i, 0.0)
-        time.sleep(7)
+            time.sleep(0.03)
+        time.sleep(3)
+        self.set_thruster(5, 1.0)
+        time.sleep(3)
         print("Ready!")
 
     def set_thruster(self, index, value):
         value = min(max(value, -1), 1)  # Keeping it in bounds
         value = value if value < 0 else value * THRUST_SCALE_FACTOR
-        self.thrusters[index].angle = 90 * value + 90
-        #self.get_logger().info(f'Thruster {index}: {90 * value + 90}') 
+        
+        self.thrusters[index].angle = 90 * value + 85
+        self.get_logger().info(f'Thruster {index}: {90 * value + 85}') 
 
     """
     Current Mapping 4/30/25:
@@ -89,7 +96,7 @@ class DriveRunner(Node):
     """
     
     def twist_callback(self, msg):
-        #self.get_logger().info(f'Recieved Twist: {msg}')   
+        self.get_logger().info(f'Recieved Twist: {msg}')   
         x = msg.linear.x
         y = msg.linear.y
         z = msg.linear.z
