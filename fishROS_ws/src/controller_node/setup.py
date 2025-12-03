@@ -26,7 +26,8 @@ setup(
     entry_points={
     'console_scripts': [
         'drivetrain_node = controller_node.twist_drivetrain:main',
-        'controller_node = controller_node.controller_sub:main'
+        'controller_node = controller_node.controller_sub:main',
+        'sonar_cam_message_converter = controller_node.sonar_cam_message_converter:main'
         ],
     },
 )
