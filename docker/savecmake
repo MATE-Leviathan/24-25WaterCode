@@ -1,0 +1,45 @@
+cmake_minimum_required(VERSION 3.14)
+project(sonar_camera_reconstruction_pkg)
+
+find_package(ament_cmake REQUIRED)
+find_package(ament_cmake_python REQUIRED)
+find_package(Python COMPONENTS Interpreter Development REQUIRED)
+find_package(pybind11 CONFIG REQUIRED)
+find_package(sonar_oculus REQUIRED)
+
+include_directories(${Python_INCLUDE_DIRS})
+include_directories(/usr/include/eigen3)
+
+pybind11_add_module(cfar
+  sonar_camera_reconstruction_pkg/cpp_scripts/cfar.cpp
+)
+
+# Install the pybind module into the python package directory
+ament_get_python_install_dir(python_install_dir)
+install(
+  TARGETS cfar
+  LIBRARY DESTINATION ${python_install_dir}/${PROJECT_NAME}
+)
+
+
+ament_python_install_package(${PROJECT_NAME})
+
+install(PROGRAMS
+  ${PROJECT_NAME}/merge_node.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(DIRECTORY config
+  DESTINATION share/${PROJECT_NAME}/
+)
+
+install(DIRECTORY launch
+  DESTINATION share/${PROJECT_NAME}/
+)
+
+install(DIRECTORY rviz
+  DESTINATION share/${PROJECT_NAME}/
+)
+
+ament_package()
+

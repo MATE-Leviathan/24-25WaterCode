@@ -39,6 +39,10 @@ else
 		/home/ubuntu/.tensorflow_workspace.readonly /home/ubuntu/tensorflow_workspace > /dev/null 2>&1
 fi
 
+cd 24-25WaterCode && uv sync
+cd -
+
+source /home/ubuntu/24-25WaterCode/.venv/bin/activate
 exec "$@"
 # Drop privileges and execute next container command, or 'bash' if not specified.
 #if [[ $# -gt 0 ]]; then

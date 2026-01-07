@@ -107,6 +107,7 @@ RUN echo "source /usr/share/colcon_cd/function/colcon_cd.sh" >> /home/ubuntu/.ba
 RUN echo "export _colcon_cd_root=/opt/ros/humble/" >> /home/ubuntu/.bashrc
 RUN echo "source /home/ubuntu/24-25WaterCode/scripts/command_aliases.sh" >> /home/ubuntu/.bashrc
 RUN echo 'export PS1="\[\e[1;36m\]Fish\[\e[1;35m\]ROS \[\e[1;32m\]\w\[\e[0m\] -> "' >> /home/ubuntu/.bashrc
+RUN echo 'source /home/ubuntu/24-25WaterCode/.venv/bin/activate' >> /home/ubuntu/.bashrc
 
 # RUN apt-get autoremove -y \
 #     && apt-get clean -y \
@@ -136,5 +137,10 @@ RUN echo 'export PS1="\[\e[1;36m\]Fish\[\e[1;35m\]ROS \[\e[1;32m\]\w\[\e[0m\] ->
 #    code --install-extension ms-iot.vscode-ros &&\
 #    code --install-extension ms-python.python &&\
 #    code --install-extension ms-python.vscode-pylance
+# install uv
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uvx /bin/uvx
+USER ubuntu
 
 RUN rosdep update
