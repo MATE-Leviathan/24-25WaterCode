@@ -62,6 +62,7 @@ class SonarSub(Node):
 
     def listener_callback(self, msg):
         image = np.array(msg.image).reshape(512, 512)
+        print(image)
         # cv.imshow("title", image)
         # cv.waitKey(0)
         ros_image_msg = bridge.cv2_to_imgmsg(image, "32FC1")
