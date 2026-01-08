@@ -118,7 +118,45 @@ git clone git@github.com:MATE-Leviathan/24-25WaterCode.git
 git clone git@github.com:MATE-Leviathan/holoocean-ros.git
 ```
 
-## 5. Run Setup Scripts
+## 5. Install HoloOcean (Required for Simulation)
+
+**IMPORTANT:** HoloOcean must be installed in `~/code/HoloOcean` for the Docker containers to work properly.
+
+### Prerequisites
+Link your GitHub account with Unreal Engine (required by Unreal Engine EULA):
+1. Go to https://www.unrealengine.com/en-US/ue-on-github
+2. Link your GitHub account
+3. Accept the Unreal Engine EULA
+
+### Clone and Install HoloOcean
+```bash
+cd ~/code
+git clone https://github.com/byu-holoocean/HoloOcean.git
+cd HoloOcean/client
+pip3 install -e .
+```
+
+### Install World Packages
+After installing the client, install the Ocean world package:
+```bash
+python3 -c "import holoocean; holoocean.install('Ocean')"
+```
+
+This will download simulation worlds and assets to `~/.local/share/holoocean/`.
+
+For more details, see: https://byu-holoocean.github.io/holoocean-docs/v2.2.2/usage/installation.html
+
+## 6. Quick Installation Script
+
+For a complete automated setup, you can run:
+```bash
+cd ~/code/24-25WaterCode/docker
+./install.sh
+```
+
+This script will check and install all prerequisites including Docker, NVIDIA Container Toolkit, and HoloOcean.
+
+## 7. Run Setup Scripts
 
 Navigate to the docker directory:
 ```bash
@@ -145,7 +183,7 @@ cd ~/code/24-25WaterCode/docker
 ./setup.sh -h
 ```
 
-## 6. Managing Docker Containers
+## 8. Managing Docker Containers
 
 ### Enter a running container:
 ```bash
