@@ -39,10 +39,12 @@ else
 		/home/ubuntu/.tensorflow_workspace.readonly /home/ubuntu/tensorflow_workspace > /dev/null 2>&1
 fi
 
-cd 24-25WaterCode && uv sync
+# this is likley bad because we don't want uv to create the venv pointing to the .readonly version of the code  
+# cd 24-25WaterCode && uv sync 
 cd -
 
 source /home/ubuntu/24-25WaterCode/.venv/bin/activate
+export UV_NO_SYNC=1 # just to make sure
 exec "$@"
 # Drop privileges and execute next container command, or 'bash' if not specified.
 #if [[ $# -gt 0 ]]; then

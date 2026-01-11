@@ -2,6 +2,13 @@
 
 This guide covers the complete setup process for the 24-25WaterCode and holoocean-ros projects on Ubuntu with NVIDIA GPU support.
 
+## Overview
+
+This setup uses:
+- **uv** - Modern Python package manager for 24-25WaterCode dependencies
+- **Virtual Environment** - For both 24-25WaterCode and HoloOcean Python packages
+- **Docker** - For running ROS 2 and simulation environments
+
 ## Prerequisites
 
 Update your system:
@@ -104,12 +111,28 @@ sudo systemctl restart docker
 docker run --rm --gpus all nvidia/cuda:11.8.0-base-ubuntu22.04 nvidia-smi
 ```
 
-## 4. Clone Repositories
+## 4. Install uv (Modern Python Package Manager)
 
-Navigate to your code directory:
+Install `uv` for fast Python package management:
 ```bash
-mkdir -p ~/code
-cd ~/code
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+After installation, restart your terminal or run:
+```bash
+source $HOME/.cargo/env
+```
+
+Verify installation:
+```bash
+uv --version
+```
+
+## 5. Clone Repositories
+
+Navigate to your home directory:
+```bash
+cd ~
 ```
 
 Clone the repositories:
@@ -118,9 +141,19 @@ git clone git@github.com:MATE-Leviathan/24-25WaterCode.git
 git clone git@github.com:MATE-Leviathan/holoocean-ros.git
 ```
 
-## 5. Install HoloOcean (Required for Simulation)
+## 6. Set Up 24-25WaterCode Virtual Environment
 
-**IMPORTANT:** HoloOcean must be installed in `~/code/HoloOcean` for the Docker containers to work properly.
+Navigate to the 24-25WaterCode directory and create the virtual environment:
+```bash
+cd ~/24-25WaterCode
+uv sync
+```
+
+This will create a `.venv` directory with all Python dependencies.
+
+## 7. Install HoloOcean (Required for Simulation)
+
+**IMPORTANT:** HoloOcean must be installed in `~/HoloOcean` for the Docker containers to work properly.
 
 ### Prerequisites
 Link your GitHub account with Unreal Engine (required by Unreal Engine EULA):
@@ -129,38 +162,51 @@ Link your GitHub account with Unreal Engine (required by Unreal Engine EULA):
 3. Accept the Unreal Engine EULA
 
 ### Clone and Install HoloOcean
+**Note:** Install HoloOcean inside the 24-25WaterCode virtual environment using `uv pip`.
+
 ```bash
-cd ~/code
+cd ~
 git clone https://github.com/byu-holoocean/HoloOcean.git
-cd HoloOcean/client
-pip3 install -e .
+
+# Make sure you're in the 24-25WaterCode directory (uv automatically uses .venv)
+cd ~/24-25WaterCode
+
+# Install HoloOcean using uv pip
+uv pip install -e ~/HoloOcean/client
 ```
+
+**Note:** `uv` creates minimal venvs without pip by default. Use `uv pip` instead of `pip3` for all package installations.
 
 ### Install World Packages
 After installing the client, install the Ocean world package:
 ```bash
-python3 -c "import holoocean; holoocean.install('Ocean')"
+cd ~/24-25WaterCode
+uv run python -c "import holoocean; holoocean.install('Ocean')"
 ```
 
 This will download simulation worlds and assets to `~/.local/share/holoocean/`.
 
+**Note:** Use `uv run python` to run Python commands with the venv activated automatically.
+
 For more details, see: https://byu-holoocean.github.io/holoocean-docs/v2.2.2/usage/installation.html
 
-## 6. Quick Installation Script
+## 8. Quick Installation Script (Optional)
 
 For a complete automated setup, you can run:
 ```bash
-cd ~/code/24-25WaterCode/docker
+cd ~/24-25WaterCode/docker
 ./install.sh
 ```
 
 This script will check and install all prerequisites including Docker, NVIDIA Container Toolkit, and HoloOcean.
 
-## 7. Run Setup Scripts
+**Note:** If you followed steps 1-7 manually, you can skip this and go directly to step 9.
+
+## 9. Run Docker Setup Scripts
 
 Navigate to the docker directory:
 ```bash
-cd ~/code/24-25WaterCode/docker
+cd ~/24-25WaterCode/docker
 ```
 
 ### Option A: Run 24-25WaterCode only
@@ -183,11 +229,18 @@ cd ~/code/24-25WaterCode/docker
 ./setup.sh -h
 ```
 
-## 8. Managing Docker Containers
+## 10. Managing Docker Containers
 
 ### Enter a running container:
+
+Enter the Leviathan container (24-25WaterCode):
 ```bash
 ./enter.sh
+```
+
+Enter the HoloOcean container (if running with -H option):
+```bash
+./enter.sh -H
 ```
 
 ### Stop containers:
@@ -207,6 +260,23 @@ docker compose logs -f
 
 ## Troubleshooting
 
+### HoloOcean directory owned by root
+If `holoocean.install('Ocean')` fails with permission errors, the HoloOcean directory may have been created by root:
+```bash
+# Check ownership
+ls -la ~/.local/share/holoocean
+
+# If owned by root, remove and recreate
+sudo rm -rf ~/.local/share/holoocean
+mkdir -p ~/.local/share/holoocean
+
+# Run install again
+cd ~/24-25WaterCode
+uv run python -c "import holoocean; holoocean.install('Ocean')"
+```
+
+**Note:** This can happen if you previously ran HoloOcean commands with sudo. Always use regular user permissions.
+
 ### Docker permission denied
 If you get permission errors, make sure you:
 1. Added your user to the docker group: `sudo usermod -aG docker $USER`
@@ -224,8 +294,60 @@ If you experience timeout issues when downloading packages:
 - Try again later
 - Use a different DNS server
 
+## Quick Reference: Complete Setup Workflow
+
+If this is your first time setting up, follow these steps in order:
+
+```bash
+# 1. Install system dependencies
+sudo apt update && sudo apt upgrade
+sudo apt install ca-certificates curl gnupg2 git python3-pip
+
+# 2. Set up SSH key for GitHub
+ssh-keygen -t ed25519 -C "your-email@example.com"
+cat ~/.ssh/id_ed25519.pub  # Add this to GitHub
+
+# 3. Install Docker
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+# ... (follow Docker installation steps above)
+
+# 4. Install NVIDIA Container Toolkit
+sudo apt install nvidia-container-toolkit
+sudo nvidia-ctk runtime configure --runtime=docker
+sudo systemctl restart docker
+
+# 5. Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source $HOME/.cargo/env
+
+# 6. Clone repositories
+cd ~
+git clone git@github.com:MATE-Leviathan/24-25WaterCode.git
+git clone git@github.com:MATE-Leviathan/holoocean-ros.git
+git clone https://github.com/byu-holoocean/HoloOcean.git
+
+# 7. Set up 24-25WaterCode (creates .venv)
+cd ~/24-25WaterCode
+uv sync
+
+# 8. Install HoloOcean (in the venv using uv pip)
+uv pip install -e ~/HoloOcean/client
+uv run python -c "import holoocean; holoocean.install('Ocean')"
+
+# 9. Run Docker setup
+cd ~/24-25WaterCode/docker
+./setup.sh -H  # With GPU support
+
+# 10. Enter container
+./enter.sh -H  # For HoloOcean
+```
+
 ## Additional Resources
 
 - Docker Documentation: https://docs.docker.com/
 - NVIDIA Container Toolkit: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/
 - Project Repository: https://github.com/MATE-Leviathan/24-25WaterCode
+- HoloOcean Documentation: https://byu-holoocean.github.io/holoocean-docs/
+- uv Documentation: https://docs.astral.sh/uv/
