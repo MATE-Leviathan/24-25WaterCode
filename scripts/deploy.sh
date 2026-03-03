@@ -5,7 +5,7 @@ set -o pipefail
 
 # This can be an array of IP address if there are multiple Jetsons
 #JETSON_ADDR=( )
-JETSON_ADDR=(10.50.2.100)
+JETSON_ADDR=(10.49.2.100)
 
 # Environment to deploy to (prod or dev).
 INSTALL_ENV=dev
@@ -25,6 +25,7 @@ done
 LOCAL_CLONE_LOCATION="$( cd -P "$( dirname "$SOURCE" )" >/dev/null && pwd )"
 ROS_CODE_LOCATION=$LOCAL_CLONE_LOCATION/../fishROS_ws
 RSYNC_OPTIONS="--delete"
+SUDO_PASSWORD="ubuntu"
 
 # Command line argument parsing.
 POSITIONAL=()
@@ -70,7 +71,7 @@ set -- "${POSITIONAL[@]}" # restore positional parameters
 
 
 JETSON_CLONE_LOCATION=/home/ubuntu/24-25WaterCode
-JETSON_ENV_LOCATION=$JETSON_CLONE_LOCATION.$INSTALL_ENV
+JETSON_ENV_LOCATION=$JETSON_CLONE_LOCATION
 JETSON_ROS_CODE_LOCATION=$JETSON_ENV_LOCATION/fishROS_ws
 
 update_links() {
@@ -101,8 +102,8 @@ check_clockdiff() {
         echo "    Local time: `date`"
         echo "    Time on $2: $REMOTE_TIME"
 		echo "    Setting remote time to current host local time"
-		echo ubuntu | ssh -tt $1 sudo date -s @$(date -u +"%s")
-		echo ubuntu | ssh -tt $1 sudo hwclock -w
+		echo "$SUDO_PASSWORD" | ssh -tt "$1" "sudo -S -p '' date -s @$(date -u +"%s")"
+		echo "$SUDO_PASSWORD" | ssh -tt "$1" "sudo -S -p '' hwclock -w"
     fi
 }
 
@@ -121,7 +122,7 @@ echo "Time synchronized."
 echo "Killing code on remotes "
 for i in "${JETSON_ADDR[@]}"
 do
-    echo ubuntu | ssh -tt ubuntu@$i "sudo /home/ubuntu/24-25WaterCode/fishROS_ws/kill_ros_.sh"
+    echo "$SUDO_PASSWORD" | ssh -tt "ubuntu@$i" "sudo -S -p '' /home/ubuntu/24-25WaterCode/fishROS_ws/kill_ros_.sh"
 done
 echo "ROS Killed on Jetson"
 
@@ -152,23 +153,23 @@ done
 echo "Synchronization to Jetson complete"
 
 
-# Run Jetson native build(s) as a separate process(es).
+# Run Jetson native build(s) as separate process(es) over SSH.
 JETSON_BUILD_PROCESSES=()
 for i in "${JETSON_ADDR[@]}"
 do
     echo "Starting Jetson $i native build using $JETSON_CLONE_LOCATION/fishROS_ws/native_build.sh" 
     (
-        ssh -XC $i terminator -T \"Jetson $i\" -x "$JETSON_CLONE_LOCATION/fishROS_ws/native_build.sh || \
-                                         read -p 'Jetson Build FAILED - press ENTER to close window'" && \
-        echo "Jetson $i native build complete"
+        ssh -t "$i" "$JETSON_CLONE_LOCATION/fishROS_ws/native_build.sh"
+        RC=$?
+        if [ $RC -eq 0 ]; then
+            echo "Jetson $i native build complete"
+        fi
+        exit $RC
     ) &
     JETSON_BUILD_PROCESSES+=($!)
 done
 
 # Capture return code from Jetson build process(es)
-# TODO - this doesn't actually capture the return code from
-# the jetson native build, but instead from the terminator command
-# which returns success if it was able to launch the command
 JETSON_RCS=()
 for i in "${JETSON_BUILD_PROCESSES[@]}"
 do
@@ -183,7 +184,7 @@ done
 # have run their course to make errors easier to see
 EXIT_FAIL=0
 
-# JETSON_RCS will be the return code for terminator
+# JETSON_RCS will be the return code for remote native_build.sh
 for i in "${JETSON_RCS[@]}"
 do
     if [ $i -ne 0 ] ; then

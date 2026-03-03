@@ -12,6 +12,7 @@ import rclpy
 import time
 import math
 import busio
+import serial
 from board import SCL, SDA
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
@@ -24,13 +25,15 @@ from geometry_msgs.msg import Vector3
 from geometry_msgs.msg import Point
 
 # Final Global Variables
-THRUSTER_PINS = [2, 3, 1, 0, 4, 5]
+MOTOR_PINS = [0, 1, 2, 3, 6, 7]
 CLAW_PINS = [6, 7]  # The last pin should be the one that controls opening/closing
 ONEOVERROOTTWO = 1 / math.sqrt(2)
 CONTROLLER_DEADZONE = 0.05
 THRUST_SCALE_FACTOR = 0.8 #0.6 #0.83375
 INITAL_CLAW_Y = 0 # should actually be x rotation but I'm too lazy to change it
 INITIAL_CLAW_Z = 0
+SERIAL_PORT = '/dev/ttyACM0'
+SERIAL_BAUD = 115200
 
 # Dynamic Global Variables
 global imu_init, orientation, linear_acceleration, angular_velocity
@@ -50,19 +53,11 @@ class DriveRunner(Node):
         self.stabilization = 0.0
         self.last_stabilization_time = self.get_clock().now()
         self.stabilization_timeout_sec = 0.5
-        
-        # Initializing the PCA Board
-        i2c_bus = busio.I2C(SCL, SDA)
-        self.pca = PCA9685(i2c_bus)
-        self.pca.frequency = 450
-        self.pca.channels[0].duty_cycle = 0xFFFF
 
-        # Initializing the thrusters
-        self.thrusters = []
-        for pin in THRUSTER_PINS:
-            #self.thrusters.append(servo.Servo(self.pca.channels[pin], min_pulse=1340, max_pulse=1870))
-            self.thrusters.append(servo.Servo(self.pca.channels[pin], min_pulse=1141, max_pulse=1971))
-            self.get_logger().info(f'Using 1141 to 1971')   
+        self.serial_conn = serial.Serial(SERIAL_PORT, SERIAL_BAUD, timeout=1)
+        self.thruster_values = [0.0] * 6
+        time.sleep(3)
+        self.get_logger().info(f'Using serial motor control on {SERIAL_PORT} @ {SERIAL_BAUD}')
 
         self.drivetrainInit()
 
@@ -72,18 +67,37 @@ class DriveRunner(Node):
         print("Initializing Thrusters... Spam the Controller!")
         for i in range(6):
             self.set_thruster(i, 0.0)
-            time.sleep(0.03)
+        self.flush_thrusters()
         time.sleep(3)
         self.set_thruster(5, 1.0)
+        self.flush_thrusters()
         time.sleep(3)
+        for i in range(6):
+            self.set_thruster(i, 0.0)
+        self.flush_thrusters()
         print("Ready!")
 
     def set_thruster(self, index, value):
         value = min(max(value, -1), 1)  # Keeping it in bounds
         value = value if value < 0 else value * THRUST_SCALE_FACTOR
-        
-        self.thrusters[index].angle = 90 * value + 85
-        self.get_logger().info(f'Thruster {index}: {90 * value + 85}') 
+        self.thruster_values[index] = value
+        self.get_logger().info(f'Thruster {index}: {value}')
+
+    def _format_motor_value(self, value):
+        normalized = max(0.0, min(1.0, 0.5 + (0.5 * value)))
+        value_str = f"{normalized:.2f}"
+        if len(value_str) == 4:
+            value_str = f"0{value_str}"
+        return value_str
+
+    def flush_thrusters(self):
+        if self.serial_conn is None or not self.serial_conn.is_open:
+            return
+
+        cmd = ""
+        for pin, value in zip(MOTOR_PINS, self.thruster_values):
+            cmd += f"z{int(pin):02d}{self._format_motor_value(value)}x\n"
+        self.serial_conn.write(cmd.encode())
 
     """
     Current Mapping 4/30/25:
@@ -133,10 +147,19 @@ class DriveRunner(Node):
         else:
             self.set_thruster(1, 0.0)
             self.set_thruster(4, 0.0)
+        self.flush_thrusters()
 
     def stabilization_callback(self, msg: Twist):
         self.stabilization = msg.linear.z
         self.last_stabilization_time = self.get_clock().now()
+
+    def destroy_node(self):
+        if self.serial_conn is not None and self.serial_conn.is_open:
+            for i in range(6):
+                self.set_thruster(i, 0.0)
+            self.flush_thrusters()
+            self.serial_conn.close()
+        super().destroy_node()
 
 class IMUSub(Node):
     def __init__(self):
@@ -148,51 +171,7 @@ class IMUSub(Node):
         orientation = msg.orientation
         linear_acceleration = msg.linear_acceleration
         angular_velocity = msg.angular_velocity
-        imu_init = True
-
-
-class PointSub(Node):
-    def __init__(self):
-        # Initializing the subscriber
-        super().__init__('point_subscriber')
-        self.subscription = self.create_subscription(Point, 'claw', self.point_callback, 10)
-
-        # Initializing the PCA Board
-        i2c_bus = busio.I2C(SCL, SDA)
-        self.pca = PCA9685(i2c_bus)
-        self.pca.frequency = 450
-
-        # Initializing the servos
-        self.servos = []
-        self.y_angle = INITAL_CLAW_Y
-        self.z_angle = INITIAL_CLAW_Z
-        for pin in CLAW_PINS:
-            self.servos.append(servo.Servo(self.pca.channels[pin], actuation_range=300))
-        
-    def point_callback(self, msg):
-        y = msg.y
-        z = msg.z
-
-        if y != 0.0:
-            self.y_angle += 2*y
-            self.get_logger().info(f'y_angle: {self.y_angle}')
-            self.writeClawY()
-        if z != 0.0:
-            self.z_angle += 2*z
-            self.get_logger().info(f'z_angle: {self.z_angle}')
-            self.writeClawZ()
-    
-    def writeClawY(self):
-        self.y_angle = max(0, min(self.y_angle, 250)) # limits servo movement between 0 and 300
-        self.servos[0].angle = int(self.y_angle)
-        self.get_logger().info(f'Rotation Servo: {self.y_angle}')
-    
-    def writeClawZ(self):
-        self.z_angle = max(10, min(self.z_angle, 250))
-        # This should run them in opposite directions 4/30/25 no more need cuz only one servo for closing
-        #self.servos[1].angle = 300 - int(self.z_angle)
-        self.servos[1].angle = int(self.z_angle)
-        self.get_logger().info(f'Claw Servo: {self.z_angle}')        
+        imu_init = True      
 
 
 def main(args=None):
@@ -201,10 +180,8 @@ def main(args=None):
     executor = MultiThreadedExecutor()
     drive_runner = DriveRunner()
     imu_sub = IMUSub()
-    point_sub = PointSub()
     executor.add_node(drive_runner)
     executor.add_node(imu_sub)
-    executor.add_node(point_sub)
 
     # Starting the execution loop
     executor.spin()
@@ -212,7 +189,6 @@ def main(args=None):
     # Destroying Nodes
     drive_runner.destroy_node()
     imu_sub.destroy_node()
-    point_sub.destroy_node()
 
     # Shutting down the program
     rclpy.shutdown()

@@ -69,5 +69,6 @@ Optimized Splines.m
 /log
 
 # Planka authentication token (keep secure!)
+scripts/photogam*
 scripts/planka_token_config.json
 scripts/planka_config.json
