@@ -8,6 +8,8 @@ TODO:
 add depth subscriber for hovering
 """
 
+from operator import index
+
 import rclpy
 import time
 import math
@@ -23,10 +25,10 @@ from geometry_msgs.msg import Twist
 from geometry_msgs.msg import Quaternion
 from geometry_msgs.msg import Vector3
 from geometry_msgs.msg import Point
+from rclpy.qos import QoSProfile, HistoryPolicy, ReliabilityPolicy, DurabilityPolicy
 
 # Final Global Variables
 MOTOR_PINS = [0, 1, 2, 3, 6, 7]
-CLAW_PINS = [6, 7]  # The last pin should be the one that controls opening/closing
 ONEOVERROOTTWO = 1 / math.sqrt(2)
 CONTROLLER_DEADZONE = 0.05
 THRUST_SCALE_FACTOR = 0.8 #0.6 #0.83375
@@ -47,7 +49,15 @@ class DriveRunner(Node):
     def __init__(self):
         # Creating the node and subscriber
         super().__init__("drive_runner")
-        self.twist_sub = self.create_subscription(Twist, "twist", self.twist_callback, 10)
+
+        qos = QoSProfile(
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,  # or small value like 5
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            durability=DurabilityPolicy.VOLATILE,
+        )
+
+        self.twist_sub = self.create_subscription(Twist, "twist", self.twist_callback, qos)
         self.stab_sub = self.create_subscription(Twist, "stabilization", self.stabilization_callback, 10)
         
         self.stabilization = 0.0
@@ -64,12 +74,9 @@ class DriveRunner(Node):
 
     def drivetrainInit(self):
         # Setting thrusters to initialization angles for 7 seconds
-        print("Initializing Thrusters... Spam the Controller!")
+        print("Initializing Thrusters... Make sure to hit both triggers before 6 seconds! Otherwise will not work!")
         for i in range(6):
             self.set_thruster(i, 0.0)
-        self.flush_thrusters()
-        time.sleep(3)
-        self.set_thruster(5, 1.0)
         self.flush_thrusters()
         time.sleep(3)
         for i in range(6):
@@ -92,23 +99,15 @@ class DriveRunner(Node):
 
     def flush_thrusters(self):
         if self.serial_conn is None or not self.serial_conn.is_open:
+            self.get_logger().info(f'Serial conn {self.serial_conn}, is open {self.serial_conn.is_open}')
             return
 
         cmd = ""
         for pin, value in zip(MOTOR_PINS, self.thruster_values):
             cmd += f"z{int(pin):02d}{self._format_motor_value(value)}x\n"
+        #self.get_logger().info(f'Not running thruster {index}: {value}')
         self.serial_conn.write(cmd.encode())
 
-    """
-    Current Mapping 4/30/25:
-    LF: 2
-    LU: 3
-    LB: 1
-    RF: 0
-    RU: 5
-    RB: 4
-    """
-    
     def twist_callback(self, msg):
         self.get_logger().info(f'Recieved Twist: {msg}')   
         x = msg.linear.x
@@ -147,6 +146,7 @@ class DriveRunner(Node):
         else:
             self.set_thruster(1, 0.0)
             self.set_thruster(4, 0.0)
+    
         self.flush_thrusters()
 
     def stabilization_callback(self, msg: Twist):

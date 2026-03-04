@@ -20,21 +20,21 @@ def generate_launch_description():
             package='fish_cam',
             executable='DWE_exploreHD_pub2',
         ),
-        Node(
-            package='bar02_pub',
-            executable='bar02_pub',
-        ),
+        # Node(
+        #     package='bar02_pub',
+        #     executable='bar02_pub',
+        # ),
         Node(
             package='controller_node',
             executable='drivetrain_node',
         ),
-        Node(
-            package='stabilization_pub',
-            executable='stabilization_pub',
-        ),
-        Node(
-            package='ph_pub',
-            executable='ph_pub',
-        ),
-        ExecuteProcess(cmd=["ros2", "launch", "foxglove_bridge", "foxglove_bridge_launch.xml"]), # I found having the bridge on the jetson was faster
+        # Node(
+        #     package='stabilization_pub',
+        #     executable='stabilization_pub',
+        # ),
+        # Node(
+        #     package='ph_pub',
+        #     executable='ph_pub',
+        # ),
+        # ExecuteProcess(cmd=["ros2", "launch", "foxglove_bridge", "foxglove_bridge_launch.xml"]), # I found having the bridge on the jetson was faster
     ])

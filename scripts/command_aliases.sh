@@ -1,7 +1,9 @@
 # Aliases are short commands to replace long ones.
 
 alias deploy='~/24-25WaterCode/scripts/deploy.sh'
-alias hwlaunch='roslaunch controller_node 2023_compbot_combined.launch'
+alias hwlaunch='ros2 launch controller_node jetson_combined_launch.py'
+alias laplaunch='ros2 launch controller_node topside_combined_launch.py'
+alias jetson='ssh 10.49.2.100'
 alias natbuild='~/24-25WaterCode/scripts/native_build.sh'
 alias rosjet='source ~/24-25WaterCode/ROSJetsonMaster.sh'
 alias rosstd='source ~/24-25WaterCode//scripts/ROSStandard.sh'

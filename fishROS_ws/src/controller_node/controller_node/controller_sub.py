@@ -16,6 +16,7 @@ from geometry_msgs.msg import Twist
 from geometry_msgs.msg import Point
 from std_msgs.msg import Float32
 from std_msgs.msg import Bool
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
 
 # Static global variables
 LOW_SENSITIVITY = 0.65  # This is basically how much inputs are scaled when in sensitive mode
@@ -95,13 +96,26 @@ class TwistPub(Node):
     def __init__(self):
         # Creating the publisher
         super().__init__("twist_publisher")
-        self.publisher = self.create_publisher(Twist, 'twist', 10)
+
+        qos = QoSProfile(
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,  # or small value like 5
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            durability=DurabilityPolicy.VOLATILE,
+        )
+        self.publisher = self.create_publisher(Twist, 'twist', 1, qos)
         timer_period = 0.02  # 50 Hz
         self.timer = self.create_timer(timer_period, self.publishTwist)
 
 
     def publishTwist(self):
         global hold_depth
+        # axes[0] left stick x
+        # axes[1] left stick y 
+        # axes[2] left trigger, defaults to 1 and goes to -1
+        # axes[3] right stick x
+        # axes[4] right stick y
+        # axes[5] right trigger defaults to 1 and goes to -1
 
         if controller_init:
             twist_message = Twist()
@@ -115,6 +129,8 @@ class TwistPub(Node):
             else:
                 linear_z = -(axes[5] - 1) / 2
 
+            self.get_logger().info(f'Linear Z {linear_z}')
+
             if abs(linear_z) > 0.08: # Deadzone
                 twist_message.linear.z = linear_z
             else:
@@ -124,7 +140,7 @@ class TwistPub(Node):
             twist_message.angular.x = 0.0
             twist_message.angular.y = 0.0
             twist_message.angular.z = -axes[3] * 0.8 * sensitivity
-
+            
             self.publisher.publish(twist_message)
 
 
