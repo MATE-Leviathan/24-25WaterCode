@@ -8,7 +8,7 @@ def generate_launch_description():
         Node(
             package='fish_cam',
             namespace='front_cam',
-            executable='DWE_exploreHD_pub.py',
+            executable='DWE_exploreHD_pub',
             name='DWE_exploreHD_pub',
             parameters=[
                 {"video_device_id": 0}

@@ -41,7 +41,6 @@ fi
 
 # this is likley bad because we don't want uv to create the venv pointing to the .readonly version of the code  
 # cd 24-25WaterCode && uv sync 
-cd -
 
 source /home/ubuntu/24-25WaterCode/.venv/bin/activate
 export UV_NO_SYNC=1 # just to make sure
