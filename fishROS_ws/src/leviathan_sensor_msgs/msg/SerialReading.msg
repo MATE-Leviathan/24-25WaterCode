@@ -1,0 +1,11 @@
+std_msgs/Header header
+string port
+uint32 baud
+string raw_line
+string raw_json
+string[] numeric_keys
+float64[] numeric_values
+string[] string_keys
+string[] string_values
+bool parse_ok
+string error

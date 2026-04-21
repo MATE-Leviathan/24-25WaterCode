@@ -29,6 +29,11 @@ buttons = []
 sensitivity = 1
 holding = False # if depth holding is on
 old_press = 0
+trigger_neutral = None
+
+
+def all_zero(values):
+    return all(value == 0 for value in values)
 
 
 class ControllerSub(Node):
@@ -68,10 +73,12 @@ class ControllerSub(Node):
         Pad Vertical: 7 - up -> 1, down -> -1
         """
 
-        global controller_init, axes, buttons, sensitivity, old_press, holding, current_depth, hold_depth
+        global controller_init, axes, buttons, sensitivity, old_press, holding, current_depth, hold_depth, trigger_neutral
         axes = msg.axes
         buttons = msg.buttons
         controller_init = True
+        if trigger_neutral is None and len(axes) > 5 and not all_zero(axes):
+            trigger_neutral = (axes[2], axes[5])
 
         # Modifing sensitivity, A turns on low sensitivity mode, B turns it off
         if buttons[0] == 1:
@@ -103,13 +110,19 @@ class TwistPub(Node):
             reliability=ReliabilityPolicy.BEST_EFFORT,
             durability=DurabilityPolicy.VOLATILE,
         )
-        self.publisher = self.create_publisher(Twist, 'twist', 1, qos)
+        self.publisher = self.create_publisher(Twist, 'twist', qos)
         timer_period = 0.02  # 50 Hz
         self.timer = self.create_timer(timer_period, self.publishTwist)
 
+    def trigger_amount(self, value, neutral):
+        if abs(neutral) < 0.1:
+            return min(abs(value - neutral), 1.0)
+        if neutral > 0:
+            return min(max((neutral - value) / 2, 0.0), 1.0)
+        return min(max((value - neutral) / 2, 0.0), 1.0)
 
     def publishTwist(self):
-        global hold_depth
+        global hold_depth, trigger_neutral
         # axes[0] left stick x
         # axes[1] left stick y 
         # axes[2] left trigger, defaults to 1 and goes to -1
@@ -124,10 +137,14 @@ class TwistPub(Node):
             twist_message.linear.x = axes[1] * sensitivity
             twist_message.linear.y = axes[0] * sensitivity
 
-            if axes[2] < axes[5]:
-                linear_z = (axes[2] - 1) / 2
+            if axes[2] == 0 and axes[5] == 0:
+                linear_z = 0.0
+            elif trigger_neutral is None:
+                linear_z = 0.0
             else:
-                linear_z = -(axes[5] - 1) / 2
+                left_trigger = self.trigger_amount(axes[2], trigger_neutral[0])
+                right_trigger = self.trigger_amount(axes[5], trigger_neutral[1])
+                linear_z = right_trigger - left_trigger
 
             self.get_logger().info(f'Linear Z {linear_z}')
 
@@ -189,4 +206,3 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
-

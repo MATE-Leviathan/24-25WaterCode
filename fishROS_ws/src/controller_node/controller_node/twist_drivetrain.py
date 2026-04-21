@@ -28,13 +28,20 @@ from geometry_msgs.msg import Point
 from rclpy.qos import QoSProfile, HistoryPolicy, ReliabilityPolicy, DurabilityPolicy
 
 # Final Global Variables
+# Thruster IDs are indexed in the same order as MOTOR_PINS.
+BACK_LEFT = 0      # z0000.50x
+MIDDLE_RIGHT = 1   # z0100.50x
+FRONT_RIGHT = 2    # z0200.50x
+MIDDLE_LEFT = 3    # z0300.50x
+BACK_RIGHT = 4     # z0600.50x
+FRONT_LEFT = 5     # z0700.50x
 MOTOR_PINS = [0, 1, 2, 3, 6, 7]
 ONEOVERROOTTWO = 1 / math.sqrt(2)
 CONTROLLER_DEADZONE = 0.05
 THRUST_SCALE_FACTOR = 0.8 #0.6 #0.83375
 INITAL_CLAW_Y = 0 # should actually be x rotation but I'm too lazy to change it
 INITIAL_CLAW_Z = 0
-SERIAL_PORT = '/dev/ttyACM0'
+SERIAL_PORT = '/dev/ttyACM1'
 SERIAL_BAUD = 115200
 
 # Dynamic Global Variables
@@ -117,35 +124,35 @@ class DriveRunner(Node):
         z_rotation = msg.angular.z
         ### Horizontal Motor Writing
         if abs(x) > CONTROLLER_DEADZONE or abs(y) > CONTROLLER_DEADZONE: # Linear Movement in XY
-            self.set_thruster(5, -ONEOVERROOTTWO * (x - y)) # RB
-            self.set_thruster(0, ONEOVERROOTTWO * (x - y)) # LF
-            self.set_thruster(3, -ONEOVERROOTTWO * (-y - x)) # RF
-            self.set_thruster(2, ONEOVERROOTTWO * (-y - x)) # LB
+            self.set_thruster(BACK_RIGHT, -ONEOVERROOTTWO * (x - y))
+            self.set_thruster(FRONT_LEFT, ONEOVERROOTTWO * (x - y))
+            self.set_thruster(FRONT_RIGHT, -ONEOVERROOTTWO * (-y - x))
+            self.set_thruster(BACK_LEFT, ONEOVERROOTTWO * (-y - x))
         elif abs(z_rotation) > CONTROLLER_DEADZONE:  # Yaw (Spin)
-            self.set_thruster(5, z_rotation * 0.75)
-            self.set_thruster(0, z_rotation * 0.75)
-            self.set_thruster(3, -z_rotation * 0.75)
-            self.set_thruster(2, -z_rotation * 0.75)
+            self.set_thruster(BACK_RIGHT, z_rotation * 0.75)
+            self.set_thruster(FRONT_LEFT, z_rotation * 0.75)
+            self.set_thruster(FRONT_RIGHT, -z_rotation * 0.75)
+            self.set_thruster(BACK_LEFT, -z_rotation * 0.75)
         else:
-            self.set_thruster(5, 0.0)
-            self.set_thruster(0, 0.0)
-            self.set_thruster(3, 0.0)
-            self.set_thruster(2, 0.0)
+            self.set_thruster(BACK_RIGHT, 0.0)
+            self.set_thruster(FRONT_LEFT, 0.0)
+            self.set_thruster(FRONT_RIGHT, 0.0)
+            self.set_thruster(BACK_LEFT, 0.0)
 
         ### Vertical Motor Writing
         if abs(z) > CONTROLLER_DEADZONE:  # Linear Movement in Z
-            self.set_thruster(1, -z) # LU
-            self.set_thruster(4, -z) # RU
+            self.set_thruster(MIDDLE_LEFT, -z)
+            self.set_thruster(MIDDLE_RIGHT, -z)
         elif abs(x_rotation) > CONTROLLER_DEADZONE:  # Roll
-            self.set_thruster(1, x_rotation)
-            self.set_thruster(4, -x_rotation)
+            self.set_thruster(MIDDLE_LEFT, x_rotation)
+            self.set_thruster(MIDDLE_RIGHT, -x_rotation)
         # Depth Hover with timeout
         elif (self.get_clock().now() - self.last_stabilization_time).nanoseconds * 1e-9 < self.stabilization_timeout_sec:
-            self.set_thruster(1, self.stabilization)
-            self.set_thruster(4, self.stabilization)
+            self.set_thruster(MIDDLE_LEFT, self.stabilization)
+            self.set_thruster(MIDDLE_RIGHT, self.stabilization)
         else:
-            self.set_thruster(1, 0.0)
-            self.set_thruster(4, 0.0)
+            self.set_thruster(MIDDLE_LEFT, 0.0)
+            self.set_thruster(MIDDLE_RIGHT, 0.0)
     
         self.flush_thrusters()
 
