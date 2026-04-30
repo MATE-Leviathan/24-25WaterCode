@@ -123,7 +123,7 @@ class TwistPub(Node):
             reliability=ReliabilityPolicy.BEST_EFFORT,
             durability=DurabilityPolicy.VOLATILE,
         )
-        self.publisher = self.create_publisher(Twist, 'twist', 1, qos)
+        self.publisher = self.create_publisher(Twist, 'twist', qos)
         timer_period = 0.02  # 50 Hz
         self.timer = self.create_timer(timer_period, self.publishTwist)
 
