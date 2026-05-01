@@ -21,6 +21,15 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPo
 # Static global variables
 LOW_SENSITIVITY = 0.65  # This is basically how much inputs are scaled when in sensitive mode
 HIGH_SENSITIVITY = 1
+A_BUTTON = 0
+B_BUTTON = 1
+X_BUTTON = 2
+LEFT_BUMPER = 4
+RIGHT_BUMPER = 5
+DPAD_HORIZONTAL_AXIS = 6
+SERVO_OPEN = 0.0
+SERVO_CLOSED = 1.0
+SERVO_STOP = 0.5
 
 # Global dynamic variables
 controller_init = False
@@ -29,10 +38,8 @@ buttons = []
 sensitivity = 1
 holding = False # if depth holding is on
 old_press = 0
-old_servo_20_press = 0
-old_servo_01_press = 0
-servo_20_at_max = False
-servo_01_at_max = False
+servo_20_position = SERVO_OPEN
+servo_01_position = SERVO_STOP
 left_trigger_axis = 2
 right_trigger_axis = 5
 
@@ -84,19 +91,27 @@ class ControllerSub(Node):
         """
 
         global controller_init, axes, buttons, sensitivity, old_press, holding
-        global servo_20_at_max, servo_01_at_max, old_servo_20_press, old_servo_01_press
+        global servo_20_position, servo_01_position
         axes = msg.axes
         buttons = msg.buttons
         controller_init = True
 
-        # Modifing sensitivity, A turns on low sensitivity mode, B turns it off
-        if buttons[0] == 1:
-            sensitivity = LOW_SENSITIVITY
-        if buttons[1] == 1:
-            sensitivity = HIGH_SENSITIVITY
+        # Small claw on servo 20: A opens, B closes.
+        if self.button_pressed(A_BUTTON):
+            servo_20_position = SERVO_OPEN
+        if self.button_pressed(B_BUTTON):
+            servo_20_position = SERVO_CLOSED
+
+        dpad_horizontal = self.axis_value(DPAD_HORIZONTAL_AXIS)
+        if dpad_horizontal > 0.5:
+            servo_01_position = SERVO_OPEN
+        elif dpad_horizontal < -0.5:
+            servo_01_position = SERVO_CLOSED
+        else:
+            servo_01_position = SERVO_STOP
 
         # Toggle depth holding with X button
-        if buttons[2] == 1 and old_press == 0:
+        if self.button_pressed(X_BUTTON) and old_press == 0:
             print("X Button Pressed")
             old_press = 1
             holding = not holding
@@ -105,23 +120,16 @@ class ControllerSub(Node):
             # Publish toggle state
             self.hold_pub.publish(Bool(data=holding))
             
-        if buttons[2] == 0:
+        if not self.button_pressed(X_BUTTON):
             old_press = 0
 
-        # Toggle auxiliary servos with the bumpers.
-        if buttons[4] == 1 and old_servo_20_press == 0:
-            old_servo_20_press = 1
-            servo_20_at_max = not servo_20_at_max
+    def button_pressed(self, index):
+        return 0 <= index < len(buttons) and buttons[index] == 1
 
-        if buttons[4] == 0:
-            old_servo_20_press = 0
-
-        if buttons[5] == 1 and old_servo_01_press == 0:
-            old_servo_01_press = 1
-            servo_01_at_max = not servo_01_at_max
-
-        if buttons[5] == 0:
-            old_servo_01_press = 0
+    def axis_value(self, index):
+        if 0 <= index < len(axes):
+            return axes[index]
+        return 0.0
 
 class TwistPub(Node):
     def __init__(self):
@@ -208,17 +216,23 @@ class PointPub(Node):
         if controller_init:
             point_message = Point()
 
-            if axes[5] < 0.5 and axes[2] >= 0.5:
+            left_bumper_pressed = self.button_pressed(LEFT_BUMPER)
+            right_bumper_pressed = self.button_pressed(RIGHT_BUMPER)
+
+            if right_bumper_pressed and not left_bumper_pressed:
                 point_message.x = 1.0
-            elif axes[2] < 0.5 and axes[5] >= 0.5:
+            elif left_bumper_pressed and not right_bumper_pressed:
                 point_message.x = -1.0
             else:
                 point_message.x = 0.0
 
-            point_message.y = 1.0 if servo_20_at_max else 0.0
-            point_message.z = 1.0 if servo_01_at_max else 0.0
+            point_message.y = servo_20_position
+            point_message.z = servo_01_position
 
             self.publisher.publish(point_message)
+
+    def button_pressed(self, index):
+        return 0 <= index < len(buttons) and buttons[index] == 1
 
 
 def main(args=None):

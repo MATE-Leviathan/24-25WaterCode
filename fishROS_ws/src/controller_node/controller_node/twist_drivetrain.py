@@ -269,8 +269,8 @@ class DriveRunner(Node):
         else:
             self.set_actuator_state("stop")
 
-        self.set_aux_servo("20", msg.y > 0.5)
-        self.set_aux_servo("01", msg.z > 0.5)
+        self.set_aux_servo_value("20", msg.y)
+        self.set_aux_servo_value("01", msg.z)
 
     def operator_aux_callback(self, msg: ActuatorCommand):
         actuator_type = msg.actuator_type.strip().lower()

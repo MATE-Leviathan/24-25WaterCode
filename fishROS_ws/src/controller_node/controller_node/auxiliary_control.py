@@ -14,6 +14,14 @@ SERVO_LIMITS = {
     "20": (0.42, 0.54),
     "01": (0.45, 1.00),
 }
+A_BUTTON = 0
+B_BUTTON = 1
+LEFT_BUMPER = 4
+RIGHT_BUMPER = 5
+DPAD_HORIZONTAL_AXIS = 6
+SERVO_OPEN = 0.0
+SERVO_CLOSED = 1.0
+SERVO_STOP = 0.5
 
 
 class AuxiliaryControl(Node):
@@ -22,26 +30,26 @@ class AuxiliaryControl(Node):
 
         self.declare_parameter("port", "/dev/ttyACM0")
         self.declare_parameter("baud", 115200)
-        self.declare_parameter("trigger_pressed_threshold", 0.5)
-        self.declare_parameter("servo_20_button", 4)  # Left bumper
-        self.declare_parameter("servo_01_button", 5)  # Right bumper
-        self.declare_parameter("left_trigger_axis", 2)
-        self.declare_parameter("right_trigger_axis", 5)
+        self.declare_parameter("open_claw_button", A_BUTTON)
+        self.declare_parameter("close_claw_button", B_BUTTON)
+        self.declare_parameter("retract_actuator_button", LEFT_BUMPER)
+        self.declare_parameter("extend_actuator_button", RIGHT_BUMPER)
+        self.declare_parameter("rotate_claw_axis", DPAD_HORIZONTAL_AXIS)
         self.declare_parameter("actuator_direction_pin", "21")
         self.declare_parameter("actuator_speed_pin", "28")
         self.declare_parameter("actuator_speed", 1.0)
 
         self.port = self.get_parameter("port").value
         self.baud = int(self.get_parameter("baud").value)
-        self.trigger_pressed_threshold = float(
-            self.get_parameter("trigger_pressed_threshold").value
+        self.open_claw_button = int(self.get_parameter("open_claw_button").value)
+        self.close_claw_button = int(self.get_parameter("close_claw_button").value)
+        self.retract_actuator_button = int(
+            self.get_parameter("retract_actuator_button").value
         )
-        self.servo_buttons = {
-            "20": int(self.get_parameter("servo_20_button").value),
-            "01": int(self.get_parameter("servo_01_button").value),
-        }
-        self.left_trigger_axis = int(self.get_parameter("left_trigger_axis").value)
-        self.right_trigger_axis = int(self.get_parameter("right_trigger_axis").value)
+        self.extend_actuator_button = int(
+            self.get_parameter("extend_actuator_button").value
+        )
+        self.rotate_claw_axis = int(self.get_parameter("rotate_claw_axis").value)
         self.actuator_direction_pin = str(
             self.get_parameter("actuator_direction_pin").value
         ).zfill(2)
@@ -52,8 +60,7 @@ class AuxiliaryControl(Node):
             0.0, min(1.0, float(self.get_parameter("actuator_speed").value))
         )
 
-        self.button_was_pressed = {pin: False for pin in self.servo_buttons}
-        self.servo_at_max = {pin: False for pin in self.servo_buttons}
+        self.servo_values = {"20": None, "01": None}
         self.actuator_state = "stop"
 
         self.serial_conn = serial.Serial(self.port, self.baud, timeout=1)
@@ -63,29 +70,32 @@ class AuxiliaryControl(Node):
         self.subscription = self.create_subscription(Joy, "joy", self.joy_callback, 10)
 
     def joy_callback(self, msg):
-        self._handle_servo_toggles(msg)
+        self._handle_claw(msg)
+        self._handle_claw_rotation(msg)
         self._handle_actuator(msg)
 
-    def _handle_servo_toggles(self, msg):
-        for pin, button_index in self.servo_buttons.items():
-            pressed = self._button_pressed(msg, button_index)
-            if pressed and not self.button_was_pressed[pin]:
-                self.servo_at_max[pin] = not self.servo_at_max[pin]
-                servo_min, servo_max = SERVO_LIMITS[pin]
-                value = servo_max if self.servo_at_max[pin] else servo_min
-                self._write_command(pin, value)
-                state = "max" if self.servo_at_max[pin] else "min"
-                self.get_logger().info(f"Servo {pin} toggled to {state} ({value:.2f})")
+    def _handle_claw(self, msg):
+        if self._button_pressed(msg, self.open_claw_button):
+            self._write_servo("20", SERVO_OPEN)
+        elif self._button_pressed(msg, self.close_claw_button):
+            self._write_servo("20", SERVO_CLOSED)
 
-            self.button_was_pressed[pin] = pressed
+    def _handle_claw_rotation(self, msg):
+        dpad_horizontal = self._axis_value(msg, self.rotate_claw_axis)
+        if dpad_horizontal > 0.5:
+            self._write_servo("01", SERVO_OPEN)
+        elif dpad_horizontal < -0.5:
+            self._write_servo("01", SERVO_CLOSED)
+        else:
+            self._write_servo("01", SERVO_STOP)
 
     def _handle_actuator(self, msg):
-        left_pressed = self._trigger_pressed(msg, self.left_trigger_axis)
-        right_pressed = self._trigger_pressed(msg, self.right_trigger_axis)
+        retract_pressed = self._button_pressed(msg, self.retract_actuator_button)
+        extend_pressed = self._button_pressed(msg, self.extend_actuator_button)
 
-        if right_pressed and not left_pressed:
+        if extend_pressed and not retract_pressed:
             next_state = "forward"
-        elif left_pressed and not right_pressed:
+        elif retract_pressed and not extend_pressed:
             next_state = "back"
         else:
             next_state = "stop"
@@ -108,11 +118,21 @@ class AuxiliaryControl(Node):
     def _button_pressed(self, msg, index):
         return 0 <= index < len(msg.buttons) and msg.buttons[index] == 1
 
-    def _trigger_pressed(self, msg, index):
-        return (
-            0 <= index < len(msg.axes)
-            and msg.axes[index] < self.trigger_pressed_threshold
-        )
+    def _axis_value(self, msg, index):
+        if 0 <= index < len(msg.axes):
+            return msg.axes[index]
+        return 0.0
+
+    def _write_servo(self, pin, normalized):
+        normalized = max(0.0, min(1.0, float(normalized)))
+        if self.servo_values.get(pin) == normalized:
+            return
+
+        servo_min, servo_max = SERVO_LIMITS[pin]
+        value = servo_min + ((servo_max - servo_min) * normalized)
+        self._write_command(pin, value)
+        self.servo_values[pin] = normalized
+        self.get_logger().info(f"Servo {pin}: {normalized:.2f} ({value:.2f})")
 
     def _write_command(self, pin, value):
         value = max(0.0, min(1.0, float(value)))
