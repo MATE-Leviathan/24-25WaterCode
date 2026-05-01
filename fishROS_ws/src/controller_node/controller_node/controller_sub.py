@@ -33,6 +33,8 @@ old_servo_20_press = 0
 old_servo_01_press = 0
 servo_20_at_max = False
 servo_01_at_max = False
+left_trigger_axis = 2
+right_trigger_axis = 5
 
 
 class ControllerSub(Node):
@@ -40,6 +42,15 @@ class ControllerSub(Node):
     def __init__(self):
         # Creating the subscriber
         super().__init__('controller_subscriber')
+        global left_trigger_axis
+        global right_trigger_axis
+
+        self.declare_parameter('left_trigger_axis', left_trigger_axis)
+        self.declare_parameter('right_trigger_axis', right_trigger_axis)
+
+        left_trigger_axis = int(self.get_parameter('left_trigger_axis').value)
+        right_trigger_axis = int(self.get_parameter('right_trigger_axis').value)
+
         self.subscription = self.create_subscription(Joy, 'joy', self.listener_callback, 10)
         self.hold_pub = self.create_publisher(Bool, 'stabilization_toggle', 10) # Bool publisher to toggle depth hold
 
@@ -64,10 +75,10 @@ class ControllerSub(Node):
 
         Left Stick Horizontal: 0 - [left, right] -> [1, -1]
         Left Stick Vertical: 1 - [up, down] -> [1, -1]
-        Left Trigger: 2 - [pressed, not pressed] -> [-1, 1]
+        Left Trigger: 2
         Right Stick Horizontal: 3 - [left, right] -> [1, -1]
         Right Stick Vertical: 4 - [up, down] -> [1, -1]
-        Right Trigger: 5 - [pressed, not pressed] -> [-1, 1]
+        Right Trigger: 5
         Pad Horizontal: 6 - left -> 1, right -> -1
         Pad Vertical: 7 - up -> 1, down -> -1
         """
@@ -126,16 +137,29 @@ class TwistPub(Node):
         self.publisher = self.create_publisher(Twist, 'twist', qos)
         timer_period = 0.02  # 50 Hz
         self.timer = self.create_timer(timer_period, self.publishTwist)
+        self.trigger_axes_initialized = {}
 
+    def axis_value(self, index):
+        if 0 <= index < len(axes):
+            return axes[index]
+        return 0.0
+
+    def trigger_amount(self, value):
+        return min(max((1.0 - value) / 2.0, 0.0), 1.0)
+
+    def trigger_axis_value(self, index):
+        value = self.axis_value(index)
+        if abs(value) > 0.01:
+            self.trigger_axes_initialized[index] = True
+        elif not self.trigger_axes_initialized.get(index, False):
+            return 1.0
+        return value
 
     def publishTwist(self):
         global hold_depth
         # axes[0] left stick x
         # axes[1] left stick y 
-        # axes[2] left trigger, defaults to 1 and goes to -1
-        # axes[3] right stick x
-        # axes[4] right stick y
-        # axes[5] right trigger defaults to 1 and goes to -1
+        # Trigger axes rest at 1, pass through 0, and are fully pulled at -1.
 
         if controller_init:
             twist_message = Twist()
@@ -144,8 +168,25 @@ class TwistPub(Node):
             twist_message.linear.x = axes[1] * sensitivity
             twist_message.linear.y = axes[0] * sensitivity
 
-            # Triggers are reserved for the linear actuator.
-            twist_message.linear.z = 0.0
+            left_trigger_raw = self.axis_value(left_trigger_axis)
+            right_trigger_raw = self.axis_value(right_trigger_axis)
+            left_trigger = self.trigger_amount(
+                self.trigger_axis_value(left_trigger_axis)
+            )
+            right_trigger = self.trigger_amount(
+                self.trigger_axis_value(right_trigger_axis)
+            )
+            linear_z = left_trigger - right_trigger
+
+            self.get_logger().info(
+                f'Linear Z {linear_z} '
+                f'raw triggers L={left_trigger_raw} R={right_trigger_raw}'
+            )
+
+            if abs(linear_z) > 0.08: # Deadzone
+                twist_message.linear.z = linear_z
+            else:
+                twist_message.linear.z = 0.0
 
             # Angular Motion - Just yaw for now
             twist_message.angular.x = 0.0
