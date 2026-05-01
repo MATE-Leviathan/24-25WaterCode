@@ -1,0 +1,5 @@
+---
+bool success
+string message
+string file_path
+uint32 frame_count

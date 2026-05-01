@@ -28,6 +28,11 @@ def generate_launch_description():
                 executable="drivetrain_node",
                 output="screen",
             ),
+            Node(
+                package="controller_node",
+                executable="high_res_recorder",
+                output="screen",
+            ),
             ExecuteProcess(
                 cmd=["ros2", "launch", "foxglove_bridge", "foxglove_bridge_launch.xml"],
                 output="screen",

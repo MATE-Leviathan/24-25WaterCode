@@ -1,0 +1,7 @@
+string camera
+string label
+string mode
+---
+bool success
+string message
+string file_path
