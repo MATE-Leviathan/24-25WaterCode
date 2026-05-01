@@ -10,7 +10,9 @@ def _parse_list(value):
 
 def _launch_cameras(context):
     camera_names = _parse_list(LaunchConfiguration("camera_names").perform(context))
-    video_device_ids = _parse_list(LaunchConfiguration("video_device_ids").perform(context))
+    video_device_ids = _parse_list(
+        LaunchConfiguration("video_device_ids").perform(context)
+    )
     executable = LaunchConfiguration("camera_executable").perform(context)
     camera_width = int(LaunchConfiguration("camera_width").perform(context))
     camera_height = int(LaunchConfiguration("camera_height").perform(context))
@@ -20,10 +22,14 @@ def _launch_cameras(context):
     high_res_selector_topic = LaunchConfiguration("high_res_selector_topic").perform(
         context
     )
+    high_res_topic = LaunchConfiguration("high_res_topic").perform(context)
     high_camera_width = int(LaunchConfiguration("high_camera_width").perform(context))
     high_camera_height = int(LaunchConfiguration("high_camera_height").perform(context))
     high_camera_fps = float(LaunchConfiguration("high_camera_fps").perform(context))
     high_jpeg_quality = int(LaunchConfiguration("high_jpeg_quality").perform(context))
+    high_res_drain_frames = int(
+        LaunchConfiguration("high_res_drain_frames").perform(context)
+    )
 
     if len(camera_names) != len(video_device_ids):
         raise RuntimeError(
@@ -56,10 +62,12 @@ def _launch_cameras(context):
                         "jpeg_quality": jpeg_quality,
                         "selected_high_res_camera": high_res_camera,
                         "high_res_selector_topic": high_res_selector_topic,
-                        "high_profile_width": high_camera_width,
-                        "high_profile_height": high_camera_height,
-                        "high_profile_fps": high_camera_fps,
-                        "high_profile_jpeg_quality": high_jpeg_quality,
+                        "high_res_topic": high_res_topic,
+                        "high_res_width": high_camera_width,
+                        "high_res_height": high_camera_height,
+                        "high_res_fps": high_camera_fps,
+                        "high_res_jpeg_quality": high_jpeg_quality,
+                        "high_res_drain_frames": high_res_drain_frames,
                     }
                 ],
             )
@@ -108,8 +116,8 @@ def generate_launch_description():
             ),
             DeclareLaunchArgument(
                 "high_res_camera",
-                default_value="all",
-                description="Initial high-res camera name or /dev/video ID.",
+                default_value="",
+                description="Initial single high-res camera name or /dev/video ID.",
             ),
             DeclareLaunchArgument(
                 "high_res_selector_topic",
@@ -117,24 +125,34 @@ def generate_launch_description():
                 description="std_msgs/String topic used to select the high-res camera.",
             ),
             DeclareLaunchArgument(
+                "high_res_topic",
+                default_value="image_high/compressed",
+                description="Selected high-res compressed output topic.",
+            ),
+            DeclareLaunchArgument(
                 "high_camera_width",
-                default_value="1280",
+                default_value="1920",
                 description="High-res selected camera compressed output width.",
             ),
             DeclareLaunchArgument(
                 "high_camera_height",
-                default_value="720",
+                default_value="1080",
                 description="High-res selected camera compressed output height.",
             ),
             DeclareLaunchArgument(
                 "high_camera_fps",
-                default_value="30.0",
+                default_value="1.0",
                 description="High-res selected camera compressed output FPS.",
             ),
             DeclareLaunchArgument(
                 "high_jpeg_quality",
-                default_value="75",
+                default_value="85",
                 description="High-res selected camera JPEG quality.",
+            ),
+            DeclareLaunchArgument(
+                "high_res_drain_frames",
+                default_value="0",
+                description="Frames to discard after switching into high-res mode.",
             ),
             OpaqueFunction(function=_launch_cameras),
         ]
