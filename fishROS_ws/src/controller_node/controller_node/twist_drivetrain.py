@@ -65,6 +65,14 @@ class DriveRunner(Node):
         # Creating the node and subscriber
         super().__init__("drive_runner")
 
+        self.declare_parameter("enable_thrusters", True)
+        self.declare_parameter("port", SERIAL_PORT)
+        self.declare_parameter("baud", SERIAL_BAUD)
+
+        self.enable_thrusters = bool(self.get_parameter("enable_thrusters").value)
+        self.serial_port = str(self.get_parameter("port").value)
+        self.serial_baud = int(self.get_parameter("baud").value)
+
         qos = QoSProfile(
             history=HistoryPolicy.KEEP_LAST,
             depth=1,  # or small value like 5
@@ -97,12 +105,19 @@ class DriveRunner(Node):
             "01": None,
         }
 
-        self.serial_conn = serial.Serial(SERIAL_PORT, SERIAL_BAUD, timeout=1)
+        self.serial_conn = serial.Serial(self.serial_port, self.serial_baud, timeout=1)
         self.thruster_values = [0.0] * 6
         time.sleep(3)
-        self.get_logger().info(f'Using serial motor control on {SERIAL_PORT} @ {SERIAL_BAUD}')
+        self.get_logger().info(
+            f'Using serial actuator control on {self.serial_port} @ {self.serial_baud}'
+        )
 
-        self.drivetrainInit()
+        if self.enable_thrusters:
+            self.drivetrainInit()
+        else:
+            self.get_logger().warn(
+                'Thruster output disabled; auxiliary servos and linear actuator remain enabled'
+            )
         self.operator_watchdog = self.create_timer(0.1, self.operator_timeout_check)
 
 
@@ -119,6 +134,9 @@ class DriveRunner(Node):
         print("Ready!")
 
     def set_thruster(self, index, value):
+        if not self.enable_thrusters:
+            return
+
         value = min(max(value, -1), 1)  # Keeping it in bounds
         value = value if value < 0 else value * THRUST_SCALE_FACTOR
         self.thruster_values[index] = value
@@ -132,6 +150,9 @@ class DriveRunner(Node):
         return value_str
 
     def flush_thrusters(self):
+        if not self.enable_thrusters:
+            return
+
         if self.serial_conn is None or not self.serial_conn.is_open:
             self.get_logger().info(f'Serial conn {self.serial_conn}, is open {self.serial_conn.is_open}')
             return
@@ -217,6 +238,9 @@ class DriveRunner(Node):
         )
 
     def twist_callback(self, msg):
+        if not self.enable_thrusters:
+            return
+
         self.get_logger().info(f'Recieved Twist: {msg}')   
         x = msg.linear.x
         y = msg.linear.y
@@ -314,9 +338,10 @@ class DriveRunner(Node):
     def destroy_node(self):
         if self.serial_conn is not None and self.serial_conn.is_open:
             self.set_actuator_state("stop")
-            for i in range(6):
-                self.set_thruster(i, 0.0)
-            self.flush_thrusters()
+            if self.enable_thrusters:
+                for i in range(6):
+                    self.set_thruster(i, 0.0)
+                self.flush_thrusters()
             self.serial_conn.close()
         super().destroy_node()
 
