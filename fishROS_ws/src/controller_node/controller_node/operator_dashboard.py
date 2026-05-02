@@ -1,4 +1,4 @@
-"""Topside browser dashboard for recording and auxiliary actuator control."""
+"""Topside browser dashboard for high-resolution recording."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import rclpy
-from fish_operator_msgs.msg import ActuatorCommand, RecordingStatus
+from fish_operator_msgs.msg import RecordingStatus
 from fish_operator_msgs.srv import StartHighResRecording, StopHighResRecording
 from rclpy.node import Node
 
@@ -90,7 +90,6 @@ DASHBOARD_HTML = """<!doctype html>
 <body>
   <header>
     <h1>Leviathan Operator</h1>
-    <button class="stop" style="max-width: 160px" onclick="stopAll()">Stop All</button>
   </header>
   <main>
     <section>
@@ -119,29 +118,8 @@ DASHBOARD_HTML = """<!doctype html>
       <div id="recordStatus" class="status">No status yet.</div>
       <div id="copyStatus" class="status">No copy yet.</div>
     </section>
-    <section>
-      <h2>Servos</h2>
-      <label>Servo 20 <span id="servo20Value" class="servo-value">0.00</span></label>
-      <input id="servo20" type="range" min="0" max="1" step="0.01" value="0"
-             oninput="setServo('servo_20', this.value, 'servo20Value')">
-      <label>Servo 01 <span id="servo01Value" class="servo-value">0.00</span></label>
-      <input id="servo01" type="range" min="0" max="1" step="0.01" value="0"
-             oninput="setServo('servo_01', this.value, 'servo01Value')">
-    </section>
-    <section>
-      <h2>Linear Actuator</h2>
-      <label for="linearSpeed">Speed <span id="linearSpeedValue">1.00</span></label>
-      <input id="linearSpeed" type="range" min="0" max="1" step="0.05" value="1"
-             oninput="linearSpeedValue.textContent = Number(this.value).toFixed(2)">
-      <div class="row" style="margin-top: 12px">
-        <button id="linearBack" class="secondary">Back</button>
-        <button id="linearForward">Forward</button>
-      </div>
-      <button class="stop" style="margin-top: 10px" onclick="linearCommand(0)">Stop</button>
-    </section>
   </main>
   <script>
-    let linearTimer = null;
     async function post(path, payload) {
       const response = await fetch(path, {
         method: 'POST',
@@ -171,36 +149,6 @@ DASHBOARD_HTML = """<!doctype html>
         `source: ${result.source || '-'}\\n` +
         `local: ${result.local_path || '-'}`;
     }
-    async function setServo(name, value, outputId) {
-      document.getElementById(outputId).textContent = Number(value).toFixed(2);
-      await post('/api/actuator', {
-        name: name,
-        actuator_type: 'servo',
-        value: Number(value)
-      });
-    }
-    async function linearCommand(value) {
-      await post('/api/actuator', {
-        name: 'linear_actuator',
-        actuator_type: 'linear',
-        value: value
-      });
-    }
-    function holdLinear(direction) {
-      clearInterval(linearTimer);
-      const send = () => linearCommand(direction * Number(linearSpeed.value));
-      send();
-      linearTimer = setInterval(send, 100);
-    }
-    function releaseLinear() {
-      clearInterval(linearTimer);
-      linearTimer = null;
-      linearCommand(0);
-    }
-    async function stopAll() {
-      releaseLinear();
-      await post('/api/stop_all', {});
-    }
     async function refreshStatus() {
       const status = await fetch('/api/status').then(r => r.json());
       recordStatus.textContent =
@@ -212,13 +160,6 @@ DASHBOARD_HTML = """<!doctype html>
         `file: ${status.file_path || '-'}\\n` +
         `copy target: ${status.copy_target || '-'}\\n` +
         `error: ${status.error || '-'}`;
-    }
-    for (const [id, direction] of [['linearBack', -1], ['linearForward', 1]]) {
-      const button = document.getElementById(id);
-      button.addEventListener('pointerdown', () => holdLinear(direction));
-      button.addEventListener('pointerup', releaseLinear);
-      button.addEventListener('pointerleave', releaseLinear);
-      button.addEventListener('pointercancel', releaseLinear);
     }
     setInterval(refreshStatus, 1000);
     refreshStatus();
@@ -251,11 +192,6 @@ class OperatorDashboard(Node):
         self.local_media_dir.mkdir(parents=True, exist_ok=True)
         self.latest_status = RecordingStatus()
 
-        self.actuator_pub = self.create_publisher(
-            ActuatorCommand,
-            "operator/actuator_command",
-            10,
-        )
         self.status_sub = self.create_subscription(
             RecordingStatus,
             "high_res_recording/status",
@@ -296,16 +232,6 @@ class OperatorDashboard(Node):
             "error": status.error,
             "copy_target": str(self.local_media_dir),
         }
-
-    def publish_actuator(self, name: str, actuator_type: str, value: float) -> None:
-        msg = ActuatorCommand()
-        msg.name = name
-        msg.actuator_type = actuator_type
-        msg.value = float(value)
-        self.actuator_pub.publish(msg)
-
-    def stop_all(self) -> None:
-        self.publish_actuator("all", "stop_all", 0.0)
 
     def start_capture(self, payload: dict[str, Any]) -> dict[str, Any]:
         if not self.start_client.wait_for_service(timeout_sec=1.0):
@@ -426,16 +352,6 @@ class OperatorDashboard(Node):
                     self._send_json(dashboard.stop_capture())
                 elif self.path == "/api/copy_latest":
                     self._send_json(dashboard.copy_latest())
-                elif self.path == "/api/actuator":
-                    dashboard.publish_actuator(
-                        str(payload.get("name", "")),
-                        str(payload.get("actuator_type", "")),
-                        float(payload.get("value", 0.0)),
-                    )
-                    self._send_json({"success": True})
-                elif self.path == "/api/stop_all":
-                    dashboard.stop_all()
-                    self._send_json({"success": True})
                 else:
                     self.send_error(404)
 

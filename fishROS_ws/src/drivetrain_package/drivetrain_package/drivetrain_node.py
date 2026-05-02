@@ -40,6 +40,9 @@ CONTROLLER_DEADZONE = 0.01  # This is the smallest controller input that will be
 ONEOVERROOTTWO = 1 / math.sqrt(2)  # Small speedup for linear movement calculations
 MIDPOINT_ANGLE = 90  # This is the stationary angle
 ANGLE_RANGE = 90  # This is the range from midpoint to max/min thrust
+LEFT_TRIGGER_AXIS = 2
+RIGHT_TRIGGER_AXIS = 5
+RIGHT_STICK_HORIZONTAL_AXIS = 3
 
 # Defining Thruster Pins
 FRONTRIGHT = 0 # Index the front right thruster will be in the array
@@ -74,15 +77,15 @@ class DriveRunner(Node):
             # Writing joystick inputs
             # There is no manual way to adjust roll, for now
 
-            # This if statement sets the z_rotation from both triggers
-            if axes[2] < axes[5]:
-                z_rotation = (axes[2] - 1) / 2
-            else:
-                z_rotation = -(axes[5] - 1) / 2
+            # Trigger axes rest at 1 and are fully pulled at -1.
+            left_trigger = (1.0 - axes[LEFT_TRIGGER_AXIS]) / 2.0
+            right_trigger = (1.0 - axes[RIGHT_TRIGGER_AXIS]) / 2.0
+            linear_z = left_trigger - right_trigger
+            z_rotation = -axes[RIGHT_STICK_HORIZONTAL_AXIS]
 
             logger.info(f'IMU TEST: {orientation.x}')
             logger.info(f'JOY TEST: {axes[1]}')
-            write(axes[0], axes[1], axes[4], 0, 0, z_rotation)
+            write(axes[0], axes[1], linear_z, 0, 0, z_rotation)
 
 
 class ControllerSub(Node):

@@ -28,7 +28,6 @@ setup(
         'drivetrain_node = controller_node.twist_drivetrain:main',
         'controller_node = controller_node.controller_sub:main',
         'sonar_cam_message_converter = controller_node.sonar_cam_message_converter:main',
-        'auxiliary_control = controller_node.auxiliary_control:main',
         'high_res_recorder = controller_node.high_res_recorder:main',
         'operator_dashboard = controller_node.operator_dashboard:main',
         ],

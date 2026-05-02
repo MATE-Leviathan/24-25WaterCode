@@ -30,6 +30,7 @@ DPAD_HORIZONTAL_AXIS = 6
 SERVO_OPEN = 0.0
 SERVO_CLOSED = 1.0
 SERVO_STOP = 0.5
+LOG_PERIOD_SEC = 0.5
 
 # Global dynamic variables
 controller_init = False
@@ -42,6 +43,8 @@ servo_20_position = SERVO_OPEN
 servo_01_position = SERVO_STOP
 left_trigger_axis = 2
 right_trigger_axis = 5
+dpad_horizontal_axis = DPAD_HORIZONTAL_AXIS
+dpad_horizontal_value = 0.0
 
 
 class ControllerSub(Node):
@@ -51,12 +54,21 @@ class ControllerSub(Node):
         super().__init__('controller_subscriber')
         global left_trigger_axis
         global right_trigger_axis
+        global dpad_horizontal_axis
 
         self.declare_parameter('left_trigger_axis', left_trigger_axis)
         self.declare_parameter('right_trigger_axis', right_trigger_axis)
+        self.declare_parameter('dpad_horizontal_axis', dpad_horizontal_axis)
 
         left_trigger_axis = int(self.get_parameter('left_trigger_axis').value)
         right_trigger_axis = int(self.get_parameter('right_trigger_axis').value)
+        dpad_horizontal_axis = int(self.get_parameter('dpad_horizontal_axis').value)
+        self.get_logger().info(
+            'Controller axes: '
+            f'left_trigger={left_trigger_axis}, '
+            f'right_trigger={right_trigger_axis}, '
+            f'dpad_horizontal={dpad_horizontal_axis}'
+        )
 
         self.subscription = self.create_subscription(Joy, 'joy', self.listener_callback, 10)
         self.hold_pub = self.create_publisher(Bool, 'stabilization_toggle', 10) # Bool publisher to toggle depth hold
@@ -91,7 +103,7 @@ class ControllerSub(Node):
         """
 
         global controller_init, axes, buttons, sensitivity, old_press, holding
-        global servo_20_position, servo_01_position
+        global servo_20_position, servo_01_position, dpad_horizontal_value
         axes = msg.axes
         buttons = msg.buttons
         controller_init = True
@@ -102,7 +114,8 @@ class ControllerSub(Node):
         if self.button_pressed(B_BUTTON):
             servo_20_position = SERVO_CLOSED
 
-        dpad_horizontal = self.axis_value(DPAD_HORIZONTAL_AXIS)
+        dpad_horizontal = self.axis_value(dpad_horizontal_axis)
+        dpad_horizontal_value = dpad_horizontal
         if dpad_horizontal > 0.5:
             servo_01_position = SERVO_OPEN
         elif dpad_horizontal < -0.5:
@@ -112,10 +125,9 @@ class ControllerSub(Node):
 
         # Toggle depth holding with X button
         if self.button_pressed(X_BUTTON) and old_press == 0:
-            print("X Button Pressed")
             old_press = 1
             holding = not holding
-            print(f"Holding = {holding}")
+            self.get_logger().info(f"Depth hold toggled: {holding}")
             
             # Publish toggle state
             self.hold_pub.publish(Bool(data=holding))
@@ -146,6 +158,7 @@ class TwistPub(Node):
         timer_period = 0.02  # 50 Hz
         self.timer = self.create_timer(timer_period, self.publishTwist)
         self.trigger_axes_initialized = {}
+        self.last_log_time = self.get_clock().now()
 
     def axis_value(self, index):
         if 0 <= index < len(axes):
@@ -162,6 +175,14 @@ class TwistPub(Node):
         elif not self.trigger_axes_initialized.get(index, False):
             return 1.0
         return value
+
+    def should_log(self):
+        now = self.get_clock().now()
+        elapsed = (now - self.last_log_time).nanoseconds * 1e-9
+        if elapsed < LOG_PERIOD_SEC:
+            return False
+        self.last_log_time = now
+        return True
 
     def publishTwist(self):
         global hold_depth
@@ -186,11 +207,6 @@ class TwistPub(Node):
             )
             linear_z = left_trigger - right_trigger
 
-            self.get_logger().info(
-                f'Linear Z {linear_z} '
-                f'raw triggers L={left_trigger_raw} R={right_trigger_raw}'
-            )
-
             if abs(linear_z) > 0.08: # Deadzone
                 twist_message.linear.z = linear_z
             else:
@@ -200,6 +216,17 @@ class TwistPub(Node):
             twist_message.angular.x = 0.0
             twist_message.angular.y = 0.0
             twist_message.angular.z = -axes[3] * 0.8 * sensitivity
+
+            if self.should_log():
+                self.get_logger().info(
+                    'Controller twist: '
+                    f'LT(axis {left_trigger_axis}) raw={left_trigger_raw:.2f} '
+                    f'amt={left_trigger:.2f}, '
+                    f'RT(axis {right_trigger_axis}) raw={right_trigger_raw:.2f} '
+                    f'amt={right_trigger:.2f}, '
+                    f'linear_z={twist_message.linear.z:.2f}, '
+                    f'yaw={twist_message.angular.z:.2f}'
+                )
             
             self.publisher.publish(twist_message)
 
@@ -210,6 +237,15 @@ class PointPub(Node):
         self.publisher = self.create_publisher(Point, "aux_control", 10)
         timer_period = 0.02
         self.timer = self.create_timer(timer_period, self.publishPoint)
+        self.last_log_time = self.get_clock().now()
+
+    def should_log(self):
+        now = self.get_clock().now()
+        elapsed = (now - self.last_log_time).nanoseconds * 1e-9
+        if elapsed < LOG_PERIOD_SEC:
+            return False
+        self.last_log_time = now
+        return True
 
 
     def publishPoint(self):
@@ -228,6 +264,16 @@ class PointPub(Node):
 
             point_message.y = servo_20_position
             point_message.z = servo_01_position
+
+            if self.should_log():
+                self.get_logger().info(
+                    'Controller aux: '
+                    f'linear_actuator={point_message.x:.1f}, '
+                    f'claw={point_message.y:.1f}, '
+                    f'claw_rotate={point_message.z:.1f}, '
+                    f'dpad_axis={dpad_horizontal_axis}, '
+                    f'dpad_raw={dpad_horizontal_value:.2f}'
+                )
 
             self.publisher.publish(point_message)
 
