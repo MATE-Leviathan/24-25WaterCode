@@ -1,30 +1,23 @@
 """
 Author(s): Everett Tucker
 Date Created: March 6, 2024
-Description: Controls the MATE ROV and Claw with a twist message and Point message, respectively
-Subscribers: Point, Imu, Twist
+Description: Controls the MATE ROV drivetrain from Twist messages.
+Subscribers: Imu, Twist
 Publishers: None
 TODO:
 add depth subscriber for hovering
 """
 
-from operator import index
-
 import rclpy
 import time
 import math
-import busio
 import serial
-from board import SCL, SDA
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
-from adafruit_pca9685 import PCA9685
-from adafruit_motor import servo
 from sensor_msgs.msg import Imu
 from geometry_msgs.msg import Twist
 from geometry_msgs.msg import Quaternion
 from geometry_msgs.msg import Vector3
-from geometry_msgs.msg import Point
 from rclpy.qos import QoSProfile, HistoryPolicy, ReliabilityPolicy, DurabilityPolicy
 
 # Final Global Variables
@@ -32,18 +25,8 @@ MOTOR_PINS = [0, 1, 2, 3, 6, 7]
 ONEOVERROOTTWO = 1 / math.sqrt(2)
 CONTROLLER_DEADZONE = 0.05
 THRUST_SCALE_FACTOR = 0.8 #0.6 #0.83375
-INITAL_CLAW_Y = 0 # should actually be x rotation but I'm too lazy to change it
-INITIAL_CLAW_Z = 0
 SERIAL_PORT = '/dev/ttyACM0'
 SERIAL_BAUD = 115200
-SERVO_LIMITS = {
-    "20": (0.42, 0.54),
-    "01": (0.45, 1.00),
-}
-ACTUATOR_DIRECTION_PIN = "21"
-ACTUATOR_SPEED_PIN = "28"
-ACTUATOR_SPEED = 1.0
-OPERATOR_LINEAR_TIMEOUT_SEC = 0.4
 DRIVETRAIN_LOG_PERIOD_SEC = 0.5
 
 # Dynamic Global Variables
@@ -76,36 +59,23 @@ class DriveRunner(Node):
 
         self.twist_sub = self.create_subscription(Twist, "twist", self.twist_callback, qos)
         self.stab_sub = self.create_subscription(Twist, "stabilization", self.stabilization_callback, 10)
-        self.aux_sub = self.create_subscription(Point, "aux_control", self.aux_callback, 10)
         
         self.stabilization = 0.0
         self.last_stabilization_time = self.get_clock().now()
         self.stabilization_timeout_sec = 0.5
-        self.actuator_state = "stop"
-        self.servo_positions = {
-            "20": None,
-            "01": None,
-        }
-        self.servo_values = {
-            "20": None,
-            "01": None,
-        }
 
         self.serial_conn = serial.Serial(self.serial_port, self.serial_baud, timeout=1)
         self.thruster_values = [0.0] * 6
         self.last_twist_log_time = self.get_clock().now()
-        self.last_aux_log_time = self.get_clock().now()
         time.sleep(3)
         self.get_logger().info(
-            f'Using serial actuator control on {self.serial_port} @ {self.serial_baud}'
+            f'Using serial thruster control on {self.serial_port} @ {self.serial_baud}'
         )
 
         if self.enable_thrusters:
             self.drivetrainInit()
         else:
-            self.get_logger().warn(
-                'Thruster output disabled; auxiliary servos and linear actuator remain enabled'
-            )
+            self.get_logger().warn('Thruster output disabled')
 
     def drivetrainInit(self):
         # Setting thrusters to initialization angles for 7 seconds
@@ -152,71 +122,12 @@ class DriveRunner(Node):
         #self.get_logger().info(f'Not running thruster {index}: {value}')
         self.serial_conn.write(cmd.encode())
 
-    def write_aux_command(self, pin, value):
-        if self.serial_conn is None or not self.serial_conn.is_open:
-            return
-
-        value = max(0.0, min(1.0, float(value)))
-        self.serial_conn.write(f"z{str(pin).zfill(2)}{value:04.2f}x\n".encode())
-
-    def set_actuator_state(self, state):
-        if state == self.actuator_state:
-            return
-
-        if state == "forward":
-            self.write_aux_command(ACTUATOR_DIRECTION_PIN, 1.0)
-            self.write_aux_command(ACTUATOR_SPEED_PIN, ACTUATOR_SPEED)
-        elif state == "back":
-            self.write_aux_command(ACTUATOR_DIRECTION_PIN, 0.0)
-            self.write_aux_command(ACTUATOR_SPEED_PIN, ACTUATOR_SPEED)
-        else:
-            self.write_aux_command(ACTUATOR_DIRECTION_PIN, 0.5)
-            self.write_aux_command(ACTUATOR_SPEED_PIN, 0.0)
-
-        self.actuator_state = state
-        self.get_logger().info(f'Actuator state: {state}')
-
-    def set_aux_servo(self, pin, at_max):
-        if self.servo_positions[pin] == at_max:
-            return
-
-        servo_min, servo_max = SERVO_LIMITS[pin]
-        value = servo_max if at_max else servo_min
-        self.set_aux_servo_value(pin, 1.0 if at_max else 0.0)
-        self.servo_positions[pin] = at_max
-        state = "max" if at_max else "min"
-        self.get_logger().info(f'Servo {pin} toggled to {state} ({value:.2f})')
-
-    def set_aux_servo_value(self, pin, normalized):
-        if pin not in SERVO_LIMITS:
-            self.get_logger().warn(f'Unknown servo pin: {pin}')
-            return
-
-        normalized = max(0.0, min(1.0, float(normalized)))
-        if self.servo_values.get(pin) == normalized:
-            return
-
-        servo_min, servo_max = SERVO_LIMITS[pin]
-        value = servo_min + ((servo_max - servo_min) * normalized)
-        self.write_aux_command(pin, value)
-        self.servo_values[pin] = normalized
-        self.servo_positions[pin] = normalized >= 0.5
-        self.get_logger().info(f'Servo {pin}: {normalized:.2f} ({value:.2f})')
-
     def should_log_twist(self):
         now = self.get_clock().now()
         elapsed = (now - self.last_twist_log_time).nanoseconds * 1e-9
         if elapsed < DRIVETRAIN_LOG_PERIOD_SEC:
             return False
         self.last_twist_log_time = now
-        return True
-
-    def should_log_aux(self):
-        now = self.get_clock().now()
-        elapsed = (now - self.last_aux_log_time).nanoseconds * 1e-9
-        if elapsed < DRIVETRAIN_LOG_PERIOD_SEC:
-            return False
-        self.last_aux_log_time = now
         return True
 
     def twist_callback(self, msg):
@@ -273,24 +184,8 @@ class DriveRunner(Node):
         self.stabilization = msg.linear.z
         self.last_stabilization_time = self.get_clock().now()
 
-    def aux_callback(self, msg: Point):
-        if self.should_log_aux():
-            self.get_logger().info(
-                f'Aux command: actuator={msg.x:.1f}, claw={msg.y:.1f}, '
-                f'claw_rotate={msg.z:.1f}'
-            )
-        if msg.x > 0.5:
-            self.set_actuator_state("forward")
-        elif msg.x < -0.5:
-            self.set_actuator_state("back")
-        else:
-            self.set_actuator_state("stop")
-
-        self.set_aux_servo_value("20", msg.y)
-        self.set_aux_servo_value("01", msg.z)
     def destroy_node(self):
         if self.serial_conn is not None and self.serial_conn.is_open:
-            self.set_actuator_state("stop")
             if self.enable_thrusters:
                 for i in range(6):
                     self.set_thruster(i, 0.0)
