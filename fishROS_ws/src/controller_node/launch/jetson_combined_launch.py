@@ -30,6 +30,11 @@ def generate_launch_description():
                 description="Set false when you want auxiliary control without thruster output.",
             ),
             DeclareLaunchArgument(
+                "enable_auxiliary",
+                default_value="true",
+                description="Set false to disable Pico auxiliary output.",
+            ),
+            DeclareLaunchArgument(
                 "pico_port",
                 default_value="/dev/ttyACM0",
                 description="Serial device for the Pico that controls auxiliary outputs and thrusters.",
@@ -48,6 +53,10 @@ def generate_launch_description():
                     {
                         "enable_thrusters": ParameterValue(
                             LaunchConfiguration("enable_thrusters"),
+                            value_type=bool,
+                        ),
+                        "enable_auxiliary": ParameterValue(
+                            LaunchConfiguration("enable_auxiliary"),
                             value_type=bool,
                         ),
                         "port": LaunchConfiguration("pico_port"),

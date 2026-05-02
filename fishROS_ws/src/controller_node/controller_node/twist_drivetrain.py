@@ -16,6 +16,7 @@ from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
 from sensor_msgs.msg import Imu
 from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Point
 from geometry_msgs.msg import Quaternion
 from geometry_msgs.msg import Vector3
 from rclpy.qos import QoSProfile, HistoryPolicy, ReliabilityPolicy, DurabilityPolicy
@@ -28,6 +29,13 @@ THRUST_SCALE_FACTOR = 0.8 #0.6 #0.83375
 SERIAL_PORT = '/dev/ttyACM0'
 SERIAL_BAUD = 115200
 DRIVETRAIN_LOG_PERIOD_SEC = 0.5
+SERVO_LIMITS = {
+    "20": (0.42, 0.54),
+    "01": (0.45, 1.00),
+}
+ACTUATOR_DIRECTION_PIN = "21"
+ACTUATOR_SPEED_PIN = "28"
+ACTUATOR_SPEED = 1.0
 
 # Dynamic Global Variables
 global imu_init, orientation, linear_acceleration, angular_velocity
@@ -43,12 +51,26 @@ class DriveRunner(Node):
         super().__init__("drive_runner")
 
         self.declare_parameter("enable_thrusters", True)
+        self.declare_parameter("enable_auxiliary", True)
         self.declare_parameter("port", SERIAL_PORT)
         self.declare_parameter("baud", SERIAL_BAUD)
+        self.declare_parameter("actuator_direction_pin", ACTUATOR_DIRECTION_PIN)
+        self.declare_parameter("actuator_speed_pin", ACTUATOR_SPEED_PIN)
+        self.declare_parameter("actuator_speed", ACTUATOR_SPEED)
 
         self.enable_thrusters = bool(self.get_parameter("enable_thrusters").value)
+        self.enable_auxiliary = bool(self.get_parameter("enable_auxiliary").value)
         self.serial_port = str(self.get_parameter("port").value)
         self.serial_baud = int(self.get_parameter("baud").value)
+        self.actuator_direction_pin = str(
+            self.get_parameter("actuator_direction_pin").value
+        ).zfill(2)
+        self.actuator_speed_pin = str(
+            self.get_parameter("actuator_speed_pin").value
+        ).zfill(2)
+        self.actuator_speed = max(
+            0.0, min(1.0, float(self.get_parameter("actuator_speed").value))
+        )
 
         qos = QoSProfile(
             history=HistoryPolicy.KEEP_LAST,
@@ -59,6 +81,7 @@ class DriveRunner(Node):
 
         self.twist_sub = self.create_subscription(Twist, "twist", self.twist_callback, qos)
         self.stab_sub = self.create_subscription(Twist, "stabilization", self.stabilization_callback, 10)
+        self.aux_sub = self.create_subscription(Point, "aux_control", self.aux_callback, 10)
         
         self.stabilization = 0.0
         self.last_stabilization_time = self.get_clock().now()
@@ -66,16 +89,24 @@ class DriveRunner(Node):
 
         self.serial_conn = serial.Serial(self.serial_port, self.serial_baud, timeout=1)
         self.thruster_values = [0.0] * 6
+        self.servo_values = {"20": None, "01": None}
+        self.actuator_state = "stop"
         self.last_twist_log_time = self.get_clock().now()
         time.sleep(3)
         self.get_logger().info(
-            f'Using serial thruster control on {self.serial_port} @ {self.serial_baud}'
+            f'Using Pico serial control on {self.serial_port} @ {self.serial_baud}'
         )
 
         if self.enable_thrusters:
             self.drivetrainInit()
         else:
             self.get_logger().warn('Thruster output disabled')
+
+        if self.enable_auxiliary:
+            self.get_logger().info('Auxiliary output enabled on aux_control')
+            self.stop_actuator()
+        else:
+            self.get_logger().warn('Auxiliary output disabled')
 
     def drivetrainInit(self):
         # Setting thrusters to initialization angles for 7 seconds
@@ -121,6 +152,33 @@ class DriveRunner(Node):
             cmd += f"z{int(pin):02d}{self._format_motor_value(value)}x\n"
         #self.get_logger().info(f'Not running thruster {index}: {value}')
         self.serial_conn.write(cmd.encode())
+
+    def write_pico_command(self, pin, value):
+        if self.serial_conn is None or not self.serial_conn.is_open:
+            self.get_logger().warn(
+                f'Serial conn {self.serial_conn}, is open {self.serial_conn.is_open}'
+            )
+            return
+
+        value = max(0.0, min(1.0, float(value)))
+        command = f"z{str(pin).zfill(2)}{value:04.2f}x\n"
+        self.serial_conn.write(command.encode())
+        self.serial_conn.flush()
+
+    def write_servo(self, pin, normalized):
+        normalized = max(0.0, min(1.0, float(normalized)))
+        if self.servo_values.get(pin) == normalized:
+            return
+
+        servo_min, servo_max = SERVO_LIMITS[pin]
+        value = servo_min + ((servo_max - servo_min) * normalized)
+        self.write_pico_command(pin, value)
+        self.servo_values[pin] = normalized
+        self.get_logger().info(f"Servo {pin}: {normalized:.2f} ({value:.2f})")
+
+    def stop_actuator(self):
+        self.write_pico_command(self.actuator_direction_pin, 0.5)
+        self.write_pico_command(self.actuator_speed_pin, 0.0)
 
     def should_log_twist(self):
         now = self.get_clock().now()
@@ -184,8 +242,39 @@ class DriveRunner(Node):
         self.stabilization = msg.linear.z
         self.last_stabilization_time = self.get_clock().now()
 
+    def aux_callback(self, msg: Point):
+        if not self.enable_auxiliary:
+            return
+
+        self.write_servo("20", msg.y)
+        self.write_servo("01", msg.z)
+
+        if msg.x > 0.5:
+            next_state = "forward"
+        elif msg.x < -0.5:
+            next_state = "back"
+        else:
+            next_state = "stop"
+
+        if next_state == self.actuator_state:
+            return
+
+        if next_state == "forward":
+            self.write_pico_command(self.actuator_direction_pin, 1.0)
+            self.write_pico_command(self.actuator_speed_pin, self.actuator_speed)
+        elif next_state == "back":
+            self.write_pico_command(self.actuator_direction_pin, 0.0)
+            self.write_pico_command(self.actuator_speed_pin, self.actuator_speed)
+        else:
+            self.stop_actuator()
+
+        self.actuator_state = next_state
+        self.get_logger().info(f"Actuator state: {next_state}")
+
     def destroy_node(self):
         if self.serial_conn is not None and self.serial_conn.is_open:
+            if self.enable_auxiliary:
+                self.stop_actuator()
             if self.enable_thrusters:
                 for i in range(6):
                     self.set_thruster(i, 0.0)
