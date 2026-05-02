@@ -8,6 +8,7 @@ Then Run: ros2 launch controller_node jetson_combined_launch.py
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, ExecuteProcess, IncludeLaunchDescription
+from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -45,11 +46,55 @@ def generate_launch_description():
                 description="Serial baud rate for the Pico controller.",
             ),
             DeclareLaunchArgument(
+                "thruster_max_output",
+                default_value="0.8",
+                description="Maximum absolute thruster command.",
+            ),
+            DeclareLaunchArgument(
                 "thruster_ramp_rate",
                 default_value="0.5",
                 description="Maximum thruster command change per second.",
             ),
-            IncludeLaunchDescription(all_cameras_launch),
+            DeclareLaunchArgument(
+                "enable_cameras",
+                default_value="true",
+                description="Set false to keep camera traffic off the control network.",
+            ),
+            DeclareLaunchArgument(
+                "enable_foxglove",
+                default_value="true",
+                description="Set false to disable the Foxglove bridge.",
+            ),
+            DeclareLaunchArgument(
+                "camera_width",
+                default_value="320",
+                description="Low-res camera stream width.",
+            ),
+            DeclareLaunchArgument(
+                "camera_height",
+                default_value="240",
+                description="Low-res camera stream height.",
+            ),
+            DeclareLaunchArgument(
+                "camera_fps",
+                default_value="10.0",
+                description="Low-res camera capture and publish FPS.",
+            ),
+            DeclareLaunchArgument(
+                "jpeg_quality",
+                default_value="40",
+                description="Low-res camera JPEG quality.",
+            ),
+            IncludeLaunchDescription(
+                all_cameras_launch,
+                condition=IfCondition(LaunchConfiguration("enable_cameras")),
+                launch_arguments={
+                    "camera_width": LaunchConfiguration("camera_width"),
+                    "camera_height": LaunchConfiguration("camera_height"),
+                    "camera_fps": LaunchConfiguration("camera_fps"),
+                    "jpeg_quality": LaunchConfiguration("jpeg_quality"),
+                }.items(),
+            ),
             Node(
                 package="controller_node",
                 executable="drivetrain_node",
@@ -69,6 +114,10 @@ def generate_launch_description():
                             LaunchConfiguration("pico_baud"),
                             value_type=int,
                         ),
+                        "thruster_max_output": ParameterValue(
+                            LaunchConfiguration("thruster_max_output"),
+                            value_type=float,
+                        ),
                         "thruster_ramp_rate": ParameterValue(
                             LaunchConfiguration("thruster_ramp_rate"),
                             value_type=float,
@@ -83,6 +132,7 @@ def generate_launch_description():
             ),
             ExecuteProcess(
                 cmd=["ros2", "launch", "foxglove_bridge", "foxglove_bridge_launch.xml"],
+                condition=IfCondition(LaunchConfiguration("enable_foxglove")),
                 output="screen",
             ),
         ]

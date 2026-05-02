@@ -32,6 +32,7 @@ THRUST_SCALE_FACTOR = 0.8 #0.6 #0.83375
 SERIAL_PORT = '/dev/ttyACM0'
 SERIAL_BAUD = 115200
 DRIVETRAIN_LOG_PERIOD_SEC = 0.5
+THRUSTER_MAX_OUTPUT = 0.8
 THRUSTER_RAMP_RATE = 0.5
 SERVO_LIMITS = {
     "20": (0.42, 0.60),
@@ -58,6 +59,7 @@ class DriveRunner(Node):
         self.declare_parameter("enable_auxiliary", True)
         self.declare_parameter("port", SERIAL_PORT)
         self.declare_parameter("baud", SERIAL_BAUD)
+        self.declare_parameter("thruster_max_output", THRUSTER_MAX_OUTPUT)
         self.declare_parameter("thruster_ramp_rate", THRUSTER_RAMP_RATE)
         self.declare_parameter("actuator_direction_pin", ACTUATOR_DIRECTION_PIN)
         self.declare_parameter("actuator_speed_pin", ACTUATOR_SPEED_PIN)
@@ -67,6 +69,9 @@ class DriveRunner(Node):
         self.enable_auxiliary = bool(self.get_parameter("enable_auxiliary").value)
         self.serial_port = str(self.get_parameter("port").value)
         self.serial_baud = int(self.get_parameter("baud").value)
+        self.thruster_max_output = max(
+            0.0, min(1.0, float(self.get_parameter("thruster_max_output").value))
+        )
         self.thruster_ramp_rate = max(
             0.01, float(self.get_parameter("thruster_ramp_rate").value)
         )
@@ -109,6 +114,9 @@ class DriveRunner(Node):
         self.get_logger().info(
             f'Thruster ramp rate: {self.thruster_ramp_rate:.2f} command units/sec'
         )
+        self.get_logger().info(
+            f'Thruster max output: {self.thruster_max_output:.2f}'
+        )
 
         if self.enable_thrusters:
             self.drivetrainInit()
@@ -141,14 +149,12 @@ class DriveRunner(Node):
 
         value = min(max(value, -1), 1)  # Keeping it in bounds
         value = value if value < 0 else value * THRUST_SCALE_FACTOR
+        value = min(max(value, -self.thruster_max_output), self.thruster_max_output)
         self.target_thruster_values[index] = value
 
     def _format_motor_value(self, value):
         normalized = max(0.0, min(1.0, 0.5 + (0.5 * value)))
-        value_str = f"{normalized:.2f}"
-        if len(value_str) == 4:
-            value_str = f"0{value_str}"
-        return value_str
+        return f"{normalized:.2f}"
 
     def flush_thrusters(self):
         if not self.enable_thrusters:
@@ -162,9 +168,10 @@ class DriveRunner(Node):
 
         self.ramp_thrusters()
 
-        cmd = ""
+        cmd = "z"
         for pin, value in zip(MOTOR_PINS, self.thruster_values):
-            cmd += f"z{int(pin):02d}{self._format_motor_value(value)}x\n"
+            cmd += f"{int(pin):02d}{self._format_motor_value(value)}"
+        cmd += "x\n"
         #self.get_logger().info(f'Not running thruster {index}: {value}')
         self.serial_conn.write(cmd.encode())
 

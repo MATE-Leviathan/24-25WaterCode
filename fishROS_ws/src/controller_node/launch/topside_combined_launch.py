@@ -16,6 +16,8 @@ def generate_launch_description():
     left_trigger_axis = LaunchConfiguration('left_trigger_axis')
     right_trigger_axis = LaunchConfiguration('right_trigger_axis')
     dpad_horizontal_axis = LaunchConfiguration('dpad_horizontal_axis')
+    joy_autorepeat_rate = LaunchConfiguration('joy_autorepeat_rate')
+    joy_coalesce_interval = LaunchConfiguration('joy_coalesce_interval')
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -43,10 +45,32 @@ def generate_launch_description():
             default_value='6',
             description='Joy axis index for D-pad left/right claw rotation.',
         ),
+        DeclareLaunchArgument(
+            'joy_autorepeat_rate',
+            default_value='50.0',
+            description='Joystick repeat rate in Hz.',
+        ),
+        DeclareLaunchArgument(
+            'joy_coalesce_interval',
+            default_value='0.0',
+            description='Seconds to coalesce joystick events before publishing.',
+        ),
         Node(
             package='joy_linux',
             executable='joy_linux_node',
             output='screen',
+            parameters=[
+                {
+                    'autorepeat_rate': ParameterValue(
+                        joy_autorepeat_rate,
+                        value_type=float,
+                    ),
+                    'coalesce_interval': ParameterValue(
+                        joy_coalesce_interval,
+                        value_type=float,
+                    ),
+                }
+            ],
         ),
         Node(
             package='controller_node',
