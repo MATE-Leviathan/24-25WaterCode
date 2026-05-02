@@ -129,18 +129,26 @@ DASHBOARD_HTML = """<!doctype html>
       return response.json();
     }
     async function startCapture() {
-      await post('/api/record/start', {
-        camera: camera.value,
-        mode: mode.value,
-        label: label.value
+      const recordStatus = document.getElementById('recordStatus');
+      const result = await post('/api/record/start', {
+        camera: document.getElementById('camera').value,
+        mode: document.getElementById('mode').value,
+        label: document.getElementById('label').value
       });
-      refreshStatus();
+      recordStatus.textContent =
+        `success: ${result.success}\\n` +
+        `message: ${result.message || '-'}\\n` +
+        `file: ${result.file_path || '-'}`;
+      if (result.success) {
+        await refreshStatus();
+      }
     }
     async function stopCapture() {
       await post('/api/record/stop', {});
       refreshStatus();
     }
     async function copyLatest() {
+      const copyStatus = document.getElementById('copyStatus');
       copyStatus.textContent = 'Copying...';
       const result = await post('/api/copy_latest', {});
       copyStatus.textContent =
@@ -151,6 +159,7 @@ DASHBOARD_HTML = """<!doctype html>
     }
     async function refreshStatus() {
       const status = await fetch('/api/status').then(r => r.json());
+      const recordStatus = document.getElementById('recordStatus');
       recordStatus.textContent =
         `active: ${status.active}\\n` +
         `mode: ${status.mode || '-'}\\n` +
@@ -175,7 +184,7 @@ class OperatorDashboard(Node):
         self.declare_parameter("host", "0.0.0.0")
         self.declare_parameter("port", 8080)
         self.declare_parameter("service_timeout_sec", 5.0)
-        self.declare_parameter("jetson_ssh_target", "ubuntu@jetson.local")
+        self.declare_parameter("jetson_ssh_target", "ubuntu@10.49.2.100")
         self.declare_parameter("local_media_dir", "~/fish_captures")
         self.declare_parameter("scp_timeout_sec", 60.0)
 

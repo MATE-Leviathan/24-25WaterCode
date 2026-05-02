@@ -20,7 +20,7 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument(
             'jetson_ssh_target',
-            default_value='ubuntu@jetson.local',
+            default_value='ubuntu@10.49.2.100',
             description='SSH target used to scp captured images/videos topside.',
         ),
         DeclareLaunchArgument(
