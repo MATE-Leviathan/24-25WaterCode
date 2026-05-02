@@ -1,5 +1,5 @@
 """
-Launch File to set up Jetson nodes without thruster output.
+Launch File to set up Jetson nodes.
 
 Run: colcon build
 Then Run: ros2 launch controller_node jetson_combined_launch.py
@@ -26,8 +26,8 @@ def generate_launch_description():
         [
             DeclareLaunchArgument(
                 "enable_thrusters",
-                default_value="false",
-                description="Set true only when you want joystick/controller input to drive thrusters.",
+                default_value="true",
+                description="Set false when you want auxiliary control without thruster output.",
             ),
             DeclareLaunchArgument(
                 "pico_port",
