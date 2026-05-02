@@ -21,7 +21,7 @@ from geometry_msgs.msg import Vector3
 from rclpy.qos import QoSProfile, HistoryPolicy, ReliabilityPolicy, DurabilityPolicy
 
 # Final Global Variables
-MOTOR_PINS = [0, 1, 2, 3, 6, 7]
+MOTOR_PINS = ["26", "07", "16", "03", "15", "11"]
 ONEOVERROOTTWO = 1 / math.sqrt(2)
 CONTROLLER_DEADZONE = 0.05
 THRUST_SCALE_FACTOR = 0.8 #0.6 #0.83375
