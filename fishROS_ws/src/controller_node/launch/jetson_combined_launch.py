@@ -44,6 +44,11 @@ def generate_launch_description():
                 default_value="115200",
                 description="Serial baud rate for the Pico controller.",
             ),
+            DeclareLaunchArgument(
+                "thruster_ramp_rate",
+                default_value="0.5",
+                description="Maximum thruster command change per second.",
+            ),
             IncludeLaunchDescription(all_cameras_launch),
             Node(
                 package="controller_node",
@@ -63,6 +68,10 @@ def generate_launch_description():
                         "baud": ParameterValue(
                             LaunchConfiguration("pico_baud"),
                             value_type=int,
+                        ),
+                        "thruster_ramp_rate": ParameterValue(
+                            LaunchConfiguration("thruster_ramp_rate"),
+                            value_type=float,
                         ),
                     }
                 ],

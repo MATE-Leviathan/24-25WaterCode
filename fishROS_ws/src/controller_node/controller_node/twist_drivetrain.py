@@ -29,6 +29,7 @@ THRUST_SCALE_FACTOR = 0.8 #0.6 #0.83375
 SERIAL_PORT = '/dev/ttyACM0'
 SERIAL_BAUD = 115200
 DRIVETRAIN_LOG_PERIOD_SEC = 0.5
+THRUSTER_RAMP_RATE = 0.5
 SERVO_LIMITS = {
     "20": (0.42, 0.54),
     "01": (0.45, 1.00),
@@ -54,6 +55,7 @@ class DriveRunner(Node):
         self.declare_parameter("enable_auxiliary", True)
         self.declare_parameter("port", SERIAL_PORT)
         self.declare_parameter("baud", SERIAL_BAUD)
+        self.declare_parameter("thruster_ramp_rate", THRUSTER_RAMP_RATE)
         self.declare_parameter("actuator_direction_pin", ACTUATOR_DIRECTION_PIN)
         self.declare_parameter("actuator_speed_pin", ACTUATOR_SPEED_PIN)
         self.declare_parameter("actuator_speed", ACTUATOR_SPEED)
@@ -62,6 +64,9 @@ class DriveRunner(Node):
         self.enable_auxiliary = bool(self.get_parameter("enable_auxiliary").value)
         self.serial_port = str(self.get_parameter("port").value)
         self.serial_baud = int(self.get_parameter("baud").value)
+        self.thruster_ramp_rate = max(
+            0.01, float(self.get_parameter("thruster_ramp_rate").value)
+        )
         self.actuator_direction_pin = str(
             self.get_parameter("actuator_direction_pin").value
         ).zfill(2)
@@ -81,7 +86,7 @@ class DriveRunner(Node):
 
         self.twist_sub = self.create_subscription(Twist, "twist", self.twist_callback, qos)
         self.stab_sub = self.create_subscription(Twist, "stabilization", self.stabilization_callback, 10)
-        self.aux_sub = self.create_subscription(Point, "aux_control", self.aux_callback, 10)
+        self.aux_sub = self.create_subscription(Point, "aux_control", self.aux_callback, qos)
         
         self.stabilization = 0.0
         self.last_stabilization_time = self.get_clock().now()
@@ -89,12 +94,17 @@ class DriveRunner(Node):
 
         self.serial_conn = serial.Serial(self.serial_port, self.serial_baud, timeout=1)
         self.thruster_values = [0.0] * 6
+        self.target_thruster_values = [0.0] * 6
+        self.last_thruster_ramp_time = self.get_clock().now()
         self.servo_values = {"20": None, "01": None}
         self.actuator_state = "stop"
         self.last_twist_log_time = self.get_clock().now()
         time.sleep(3)
         self.get_logger().info(
             f'Using Pico serial control on {self.serial_port} @ {self.serial_baud}'
+        )
+        self.get_logger().info(
+            f'Thruster ramp rate: {self.thruster_ramp_rate:.2f} command units/sec'
         )
 
         if self.enable_thrusters:
@@ -128,7 +138,7 @@ class DriveRunner(Node):
 
         value = min(max(value, -1), 1)  # Keeping it in bounds
         value = value if value < 0 else value * THRUST_SCALE_FACTOR
-        self.thruster_values[index] = value
+        self.target_thruster_values[index] = value
 
     def _format_motor_value(self, value):
         normalized = max(0.0, min(1.0, 0.5 + (0.5 * value)))
@@ -147,11 +157,30 @@ class DriveRunner(Node):
             )
             return
 
+        self.ramp_thrusters()
+
         cmd = ""
         for pin, value in zip(MOTOR_PINS, self.thruster_values):
             cmd += f"z{int(pin):02d}{self._format_motor_value(value)}x\n"
         #self.get_logger().info(f'Not running thruster {index}: {value}')
         self.serial_conn.write(cmd.encode())
+
+    def ramp_thrusters(self):
+        now = self.get_clock().now()
+        dt = (now - self.last_thruster_ramp_time).nanoseconds * 1e-9
+        self.last_thruster_ramp_time = now
+
+        if dt <= 0.0:
+            return
+
+        max_delta = self.thruster_ramp_rate * dt
+        for index, target in enumerate(self.target_thruster_values):
+            current = self.thruster_values[index]
+            delta = target - current
+            if abs(delta) <= max_delta:
+                self.thruster_values[index] = target
+            else:
+                self.thruster_values[index] = current + math.copysign(max_delta, delta)
 
     def write_pico_command(self, pin, value):
         if self.serial_conn is None or not self.serial_conn.is_open:
@@ -235,7 +264,8 @@ class DriveRunner(Node):
             self.get_logger().info(
                 'Drive command: '
                 f'x={x:.2f}, y={y:.2f}, z={z:.2f}, yaw={z_rotation:.2f}; '
-                f'thrusters={",".join(f"{value:.2f}" for value in self.thruster_values)}'
+                f'thrusters={",".join(f"{value:.2f}" for value in self.thruster_values)}; '
+                f'target={",".join(f"{value:.2f}" for value in self.target_thruster_values)}'
             )
 
     def stabilization_callback(self, msg: Twist):

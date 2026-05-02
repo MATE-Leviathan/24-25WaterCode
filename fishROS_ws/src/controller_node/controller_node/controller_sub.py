@@ -234,7 +234,13 @@ class TwistPub(Node):
 class PointPub(Node):
     def __init__(self):
         super().__init__("point_publisher")
-        self.publisher = self.create_publisher(Point, "aux_control", 10)
+        qos = QoSProfile(
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            durability=DurabilityPolicy.VOLATILE,
+        )
+        self.publisher = self.create_publisher(Point, "aux_control", qos)
         timer_period = 0.02
         self.timer = self.create_timer(timer_period, self.publishPoint)
         self.last_log_time = self.get_clock().now()
