@@ -30,6 +30,9 @@ DPAD_HORIZONTAL_AXIS = 6
 SERVO_OPEN = 0.0
 SERVO_CLOSED = 1.0
 SERVO_STOP = 0.5
+SMALL_CLAW_RATE_PER_SEC = 0.25
+CLAW_ROTATE_HORIZONTAL = 0.0
+CLAW_ROTATE_VERTICAL = 1.0
 LOG_PERIOD_SEC = 0.5
 
 # Global dynamic variables
@@ -72,6 +75,7 @@ class ControllerSub(Node):
 
         self.subscription = self.create_subscription(Joy, 'joy', self.listener_callback, 10)
         self.hold_pub = self.create_publisher(Bool, 'stabilization_toggle', 10) # Bool publisher to toggle depth hold
+        self.last_claw_update_time = self.get_clock().now()
 
     def listener_callback(self, msg):
         """
@@ -108,20 +112,28 @@ class ControllerSub(Node):
         buttons = msg.buttons
         controller_init = True
 
-        # Small claw on servo 20: A opens, B closes.
-        if self.button_pressed(A_BUTTON):
-            servo_20_position = SERVO_OPEN
-        if self.button_pressed(B_BUTTON):
-            servo_20_position = SERVO_CLOSED
+        now = self.get_clock().now()
+        elapsed = (now - self.last_claw_update_time).nanoseconds * 1e-9
+        self.last_claw_update_time = now
+
+        # Small claw on servo 20: hold A to open, hold B to close slowly.
+        if self.button_pressed(A_BUTTON) and not self.button_pressed(B_BUTTON):
+            servo_20_position = max(
+                SERVO_OPEN,
+                servo_20_position - (SMALL_CLAW_RATE_PER_SEC * elapsed),
+            )
+        elif self.button_pressed(B_BUTTON) and not self.button_pressed(A_BUTTON):
+            servo_20_position = min(
+                SERVO_CLOSED,
+                servo_20_position + (SMALL_CLAW_RATE_PER_SEC * elapsed),
+            )
 
         dpad_horizontal = self.axis_value(dpad_horizontal_axis)
         dpad_horizontal_value = dpad_horizontal
         if dpad_horizontal > 0.5:
-            servo_01_position = SERVO_OPEN
+            servo_01_position = CLAW_ROTATE_HORIZONTAL
         elif dpad_horizontal < -0.5:
-            servo_01_position = SERVO_CLOSED
-        else:
-            servo_01_position = SERVO_STOP
+            servo_01_position = CLAW_ROTATE_VERTICAL
 
         # Toggle depth holding with X button
         if self.button_pressed(X_BUTTON) and old_press == 0:

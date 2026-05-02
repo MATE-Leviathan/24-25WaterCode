@@ -23,7 +23,9 @@ from rclpy.qos import QoSProfile, HistoryPolicy, ReliabilityPolicy, DurabilityPo
 
 # Final Global Variables
 # Logical thruster order: LF, LU, LB, RF, RU, RB.
-MOTOR_PINS = ["26", "03", "16", "07", "11", "15"]
+# Physical mapping: front left=26, mid left=03, back left=11,
+# front right=15, mid right=16, back right=07.
+MOTOR_PINS = ["26", "03", "11", "15", "16", "07"]
 ONEOVERROOTTWO = 1 / math.sqrt(2)
 CONTROLLER_DEADZONE = 0.05
 THRUST_SCALE_FACTOR = 0.8 #0.6 #0.83375
@@ -32,8 +34,8 @@ SERIAL_BAUD = 115200
 DRIVETRAIN_LOG_PERIOD_SEC = 0.5
 THRUSTER_RAMP_RATE = 0.5
 SERVO_LIMITS = {
-    "20": (0.42, 0.54),
-    "01": (0.45, 1.00),
+    "20": (0.42, 0.60),
+    "01": (0.58, 0.77),
 }
 ACTUATOR_DIRECTION_PIN = "21"
 ACTUATOR_SPEED_PIN = "28"

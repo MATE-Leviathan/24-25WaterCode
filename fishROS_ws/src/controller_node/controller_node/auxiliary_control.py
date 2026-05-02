@@ -11,8 +11,8 @@ from sensor_msgs.msg import Joy
 
 
 SERVO_LIMITS = {
-    "20": (0.42, 0.54),
-    "01": (0.45, 1.00),
+    "20": (0.42, 0.60),
+    "01": (0.58, 0.77),
 }
 A_BUTTON = 0
 B_BUTTON = 1
@@ -22,6 +22,9 @@ DPAD_HORIZONTAL_AXIS = 6
 SERVO_OPEN = 0.0
 SERVO_CLOSED = 1.0
 SERVO_STOP = 0.5
+SMALL_CLAW_RATE_PER_SEC = 0.25
+CLAW_ROTATE_HORIZONTAL = 0.0
+CLAW_ROTATE_VERTICAL = 1.0
 
 
 class AuxiliaryControl(Node):
@@ -61,7 +64,9 @@ class AuxiliaryControl(Node):
         )
 
         self.servo_values = {"20": None, "01": None}
+        self.small_claw_position = SERVO_OPEN
         self.actuator_state = "stop"
+        self.last_claw_update_time = self.get_clock().now()
 
         self.serial_conn = serial.Serial(self.port, self.baud, timeout=1)
         time.sleep(2)
@@ -75,19 +80,35 @@ class AuxiliaryControl(Node):
         self._handle_actuator(msg)
 
     def _handle_claw(self, msg):
-        if self._button_pressed(msg, self.open_claw_button):
-            self._write_servo("20", SERVO_OPEN)
-        elif self._button_pressed(msg, self.close_claw_button):
-            self._write_servo("20", SERVO_CLOSED)
+        now = self.get_clock().now()
+        elapsed = (now - self.last_claw_update_time).nanoseconds * 1e-9
+        self.last_claw_update_time = now
+
+        if self._button_pressed(msg, self.open_claw_button) and not self._button_pressed(
+            msg, self.close_claw_button
+        ):
+            self.small_claw_position = max(
+                SERVO_OPEN,
+                self.small_claw_position - (SMALL_CLAW_RATE_PER_SEC * elapsed),
+            )
+        elif self._button_pressed(
+            msg, self.close_claw_button
+        ) and not self._button_pressed(msg, self.open_claw_button):
+            self.small_claw_position = min(
+                SERVO_CLOSED,
+                self.small_claw_position + (SMALL_CLAW_RATE_PER_SEC * elapsed),
+            )
+        else:
+            return
+
+        self._write_servo("20", self.small_claw_position)
 
     def _handle_claw_rotation(self, msg):
         dpad_horizontal = self._axis_value(msg, self.rotate_claw_axis)
         if dpad_horizontal > 0.5:
-            self._write_servo("01", SERVO_OPEN)
+            self._write_servo("01", CLAW_ROTATE_HORIZONTAL)
         elif dpad_horizontal < -0.5:
-            self._write_servo("01", SERVO_CLOSED)
-        else:
-            self._write_servo("01", SERVO_STOP)
+            self._write_servo("01", CLAW_ROTATE_VERTICAL)
 
     def _handle_actuator(self, msg):
         retract_pressed = self._button_pressed(msg, self.retract_actuator_button)
