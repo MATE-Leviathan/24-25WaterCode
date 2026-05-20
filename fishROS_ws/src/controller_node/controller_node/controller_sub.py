@@ -66,6 +66,7 @@ class ControllerSub(Node):
         left_trigger_axis = int(self.get_parameter('left_trigger_axis').value)
         right_trigger_axis = int(self.get_parameter('right_trigger_axis').value)
         dpad_horizontal_axis = int(self.get_parameter('dpad_horizontal_axis').value)
+        self.last_dpad_rotation_state = None
         self.get_logger().info(
             'Controller axes: '
             f'left_trigger={left_trigger_axis}, '
