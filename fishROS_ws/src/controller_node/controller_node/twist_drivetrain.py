@@ -51,6 +51,13 @@ class DriveRunner(Node):
         self.last_stabilization_time = self.get_clock().now()
         self.stabilization_timeout_sec = 0.5
 
+        # Zero every thruster if twists stop arriving (tether drop, topside crash)
+        self.declare_parameter('twist_timeout', 0.5)
+        self.twist_timeout_sec = float(self.get_parameter('twist_timeout').value)
+        self.last_twist_time = None
+        self.twist_stale = True
+        self.watchdog_timer = self.create_timer(0.1, self.watchdog)
+
         self.serial_conn = serial.Serial(SERIAL_PORT, SERIAL_BAUD, timeout=1)
         self.thruster_values = [0.0] * 6
         time.sleep(3)
@@ -95,7 +102,26 @@ class DriveRunner(Node):
         #self.get_logger().info(f'Not running thruster {index}: {value}')
         self.serial_conn.write(cmd.encode())
 
+    def stop_thrusters(self):
+        for i in range(6):
+            self.set_thruster(i, 0.0)
+        self.flush_thrusters()
+
+    def watchdog(self):
+        now = self.get_clock().now()
+        if self.last_twist_time is not None and \
+                (now - self.last_twist_time).nanoseconds * 1e-9 < self.twist_timeout_sec:
+            return
+        if not self.twist_stale:
+            self.get_logger().warn(f'No twist for {self.twist_timeout_sec}s, stopping thrusters')
+            self.twist_stale = True
+        self.stop_thrusters()
+
     def twist_callback(self, msg):
+        self.last_twist_time = self.get_clock().now()
+        if self.twist_stale:
+            self.get_logger().info('Receiving twist, thrusters live')
+            self.twist_stale = False
         self.get_logger().info(f'Recieved Twist: {msg}')   
         x = msg.linear.x
         y = msg.linear.y
