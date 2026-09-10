@@ -1,30 +1,17 @@
 """
 Author(s): Everett Tucker
 Date Created: March 6, 2024
-Description: Controls the MATE ROV and Claw with a twist message and Point message, respectively
-Subscribers: Point, Imu, Twist
+Description: Drives the thrusters from twist messages over serial to the Pico
+Subscribers: twist, stabilization
 Publishers: None
-TODO:
-add depth subscriber for hovering
 """
-
-from operator import index
 
 import rclpy
 import time
 import math
-import busio
 import serial
-from board import SCL, SDA
 from rclpy.node import Node
-from rclpy.executors import MultiThreadedExecutor
-from adafruit_pca9685 import PCA9685
-from adafruit_motor import servo
-from sensor_msgs.msg import Imu
 from geometry_msgs.msg import Twist
-from geometry_msgs.msg import Quaternion
-from geometry_msgs.msg import Vector3
-from geometry_msgs.msg import Point
 from rclpy.qos import QoSProfile, HistoryPolicy, ReliabilityPolicy, DurabilityPolicy
 
 # Final Global Variables
@@ -43,13 +30,6 @@ INITAL_CLAW_Y = 0 # should actually be x rotation but I'm too lazy to change it
 INITIAL_CLAW_Z = 0
 SERIAL_PORT = '/dev/ttyACM1'
 SERIAL_BAUD = 115200
-
-# Dynamic Global Variables
-global imu_init, orientation, linear_acceleration, angular_velocity
-imu_init = False
-orientation = Quaternion()
-linear_acceleration = Vector3()
-angular_velocity = Vector3()
 
 
 class DriveRunner(Node):
@@ -168,34 +148,16 @@ class DriveRunner(Node):
             self.serial_conn.close()
         super().destroy_node()
 
-class IMUSub(Node):
-    def __init__(self):
-        super().__init__('imu_subscriber')
-        self.subscription = self.create_subscription(Imu, 'IMUData', self.imu_callback, 10)
-
-    def imu_callback(self, msg):
-        global orientation, linear_acceleration, angular_velocity, imu_init
-        orientation = msg.orientation
-        linear_acceleration = msg.linear_acceleration
-        angular_velocity = msg.angular_velocity
-        imu_init = True      
-
-
 def main(args=None):
     rclpy.init(args=args)
 
-    executor = MultiThreadedExecutor()
     drive_runner = DriveRunner()
-    imu_sub = IMUSub()
-    executor.add_node(drive_runner)
-    executor.add_node(imu_sub)
 
     # Starting the execution loop
-    executor.spin()
+    rclpy.spin(drive_runner)
 
     # Destroying Nodes
     drive_runner.destroy_node()
-    imu_sub.destroy_node()
 
     # Shutting down the program
     rclpy.shutdown()
