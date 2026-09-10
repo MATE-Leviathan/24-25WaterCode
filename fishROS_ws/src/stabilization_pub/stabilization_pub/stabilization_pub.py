@@ -106,7 +106,7 @@ class StabilizationPub(Node):
         self.status.data = 1
 
         error = round(self.target_depth - self.current_depth, 2)
-        self.get_logger().info(f'Current Error: {error}')
+        self.get_logger().debug(f'Current Error: {error}')
 
         twist = Twist()
 

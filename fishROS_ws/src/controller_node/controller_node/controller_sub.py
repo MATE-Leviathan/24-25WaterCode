@@ -158,7 +158,7 @@ class TwistPub(Node):
             )
             linear_z = left_trigger - right_trigger
 
-            self.get_logger().info(
+            self.get_logger().debug(
                 f'Linear Z {linear_z} '
                 f'raw triggers L={left_trigger_raw} R={right_trigger_raw}'
             )

@@ -76,8 +76,8 @@ class DriveRunner(Node):
 
 
     def drivetrainInit(self):
-        # Setting thrusters to initialization angles for 7 seconds
-        print("Initializing Thrusters... Make sure to hit both triggers before 6 seconds! Otherwise will not work!")
+        # Hold neutral while the ESCs arm
+        self.get_logger().info('Arming thrusters at neutral')
         for i in range(6):
             self.set_thruster(i, 0.0)
         self.flush_thrusters()
@@ -85,13 +85,13 @@ class DriveRunner(Node):
         for i in range(6):
             self.set_thruster(i, 0.0)
         self.flush_thrusters()
-        print("Ready!")
+        self.get_logger().info('Thrusters ready')
 
     def set_thruster(self, index, value):
         value = min(max(value, -1), 1)  # Keeping it in bounds
         value = value if value < 0 else value * THRUST_SCALE_FACTOR
         self.thruster_values[index] = value
-        self.get_logger().info(f'Thruster {index}: {value}')
+        self.get_logger().debug(f'Thruster {index}: {value}')
 
     def set_thrusters_scaled(self, values):
         # Scale the group down together so combined inputs keep their ratio
@@ -152,7 +152,7 @@ class DriveRunner(Node):
         if self.twist_stale:
             self.get_logger().info('Receiving twist, thrusters live')
             self.twist_stale = False
-        self.get_logger().info(f'Recieved Twist: {msg}')   
+        self.get_logger().debug(f'Received Twist: {msg}')
         x = msg.linear.x
         y = msg.linear.y
         z = msg.linear.z
