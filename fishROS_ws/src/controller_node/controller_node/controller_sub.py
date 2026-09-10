@@ -36,6 +36,20 @@ left_trigger_axis = 2
 right_trigger_axis = 5
 
 
+# Gamepads differ in how many axes and buttons they report, so read
+# missing ones as released instead of raising IndexError in a callback
+def axis_value(index):
+    if 0 <= index < len(axes):
+        return axes[index]
+    return 0.0
+
+
+def button_value(index):
+    if 0 <= index < len(buttons):
+        return buttons[index]
+    return 0
+
+
 class ControllerSub(Node):
 
     def __init__(self):
@@ -89,13 +103,13 @@ class ControllerSub(Node):
         controller_init = True
 
         # Modifing sensitivity, A turns on low sensitivity mode, B turns it off
-        if buttons[0] == 1:
+        if button_value(0) == 1:
             sensitivity = LOW_SENSITIVITY
-        if buttons[1] == 1:
+        if button_value(1) == 1:
             sensitivity = HIGH_SENSITIVITY
 
         # Toggle depth holding with X button
-        if buttons[2] == 1 and old_press == 0:
+        if button_value(2) == 1 and old_press == 0:
             print("X Button Pressed")
             old_press = 1
             holding = not holding
@@ -104,7 +118,7 @@ class ControllerSub(Node):
             # Publish toggle state
             self.hold_pub.publish(Bool(data=holding))
             
-        if buttons[2] == 0:
+        if button_value(2) == 0:
             old_press = 0
 
 class TwistPub(Node):
@@ -124,16 +138,11 @@ class TwistPub(Node):
         self.trigger_axes_initialized = {}
         self.joy_stale = False
 
-    def axis_value(self, index):
-        if 0 <= index < len(axes):
-            return axes[index]
-        return 0.0
-
     def trigger_amount(self, value):
         return min(max((1.0 - value) / 2.0, 0.0), 1.0)
 
     def trigger_axis_value(self, index):
-        value = self.axis_value(index)
+        value = axis_value(index)
         if abs(value) > 0.01:
             self.trigger_axes_initialized[index] = True
         elif not self.trigger_axes_initialized.get(index, False):
@@ -164,11 +173,11 @@ class TwistPub(Node):
         twist_message = Twist()
 
         # Linear Motion - (x, y, z), scaling inputs by sensitivity
-        twist_message.linear.x = axes[1] * sensitivity
-        twist_message.linear.y = axes[0] * sensitivity
+        twist_message.linear.x = axis_value(1) * sensitivity
+        twist_message.linear.y = axis_value(0) * sensitivity
 
-        left_trigger_raw = self.axis_value(left_trigger_axis)
-        right_trigger_raw = self.axis_value(right_trigger_axis)
+        left_trigger_raw = axis_value(left_trigger_axis)
+        right_trigger_raw = axis_value(right_trigger_axis)
         left_trigger = self.trigger_amount(
             self.trigger_axis_value(left_trigger_axis)
         )
@@ -190,7 +199,7 @@ class TwistPub(Node):
         # Angular Motion - Just yaw for now
         twist_message.angular.x = 0.0
         twist_message.angular.y = 0.0
-        twist_message.angular.z = -axes[3] * 0.8 * sensitivity
+        twist_message.angular.z = -axis_value(3) * 0.8 * sensitivity
         
         self.publisher.publish(twist_message)
 
@@ -208,8 +217,8 @@ class PointPub(Node):
             point_message = Point()
 
             point_message.x = 0.0  # Not needed, left as 0
-            point_message.y = float(buttons[4] - buttons[5]) # axes[7]  # Rotate claw
-            point_message.z = axes[7]  # Open/close claw
+            point_message.y = float(button_value(4) - button_value(5))  # Rotate claw
+            point_message.z = axis_value(7)  # Open/close claw
 
             self.publisher.publish(point_message)
 
