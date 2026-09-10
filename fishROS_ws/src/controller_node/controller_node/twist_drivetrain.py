@@ -10,6 +10,7 @@ import rclpy
 import time
 import math
 import serial
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from rclpy.qos import QoSProfile, HistoryPolicy, ReliabilityPolicy, DurabilityPolicy
@@ -166,27 +167,26 @@ class DriveRunner(Node):
         self.stabilization = msg.linear.z
         self.last_stabilization_time = self.get_clock().now()
 
-    def destroy_node(self):
+    def close(self):
         if self.serial_conn is not None and self.serial_conn.is_open:
-            for i in range(6):
-                self.set_thruster(i, 0.0)
-            self.flush_thrusters()
+            self.stop_thrusters()
             self.serial_conn.close()
-        super().destroy_node()
 
 def main(args=None):
     rclpy.init(args=args)
 
     drive_runner = DriveRunner()
 
-    # Starting the execution loop
-    rclpy.spin(drive_runner)
-
-    # Destroying Nodes
-    drive_runner.destroy_node()
-
-    # Shutting down the program
-    rclpy.shutdown()
+    try:
+        rclpy.spin(drive_runner)
+    except (KeyboardInterrupt, ExternalShutdownException):
+        pass
+    finally:
+        # Runs on Ctrl-C, launch shutdown and callback exceptions alike
+        drive_runner.close()
+        drive_runner.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 if __name__ == '__main__':
     main()
