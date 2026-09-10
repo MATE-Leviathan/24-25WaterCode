@@ -31,6 +31,7 @@ def generate_launch_description():
     serial_port = LaunchConfiguration('serial_port')
     serial_baud = LaunchConfiguration('serial_baud')
     serial_timeout = LaunchConfiguration('serial_timeout')
+    thruster_port = LaunchConfiguration('thruster_port')
     camera_device = LaunchConfiguration('camera_device')
     ads1115_topic = LaunchConfiguration('ads1115_topic')
     ads1115_sample_period = LaunchConfiguration('ads1115_sample_period')
@@ -52,6 +53,7 @@ def generate_launch_description():
         DeclareLaunchArgument('serial_port', default_value='/dev/ttyACM0'),
         DeclareLaunchArgument('serial_baud', default_value='115200'),
         DeclareLaunchArgument('serial_timeout', default_value='1.0'),
+        DeclareLaunchArgument('thruster_port', default_value='/dev/ttyACM1'),
         DeclareLaunchArgument('camera_device', default_value='0'),
         DeclareLaunchArgument(
             'ads1115_topic',
@@ -143,6 +145,7 @@ def generate_launch_description():
         Node(
             package='controller_node',
             executable='drivetrain_node',
+            parameters=[{'port': thruster_port}],
             output='screen',
         ),
         ExecuteProcess(

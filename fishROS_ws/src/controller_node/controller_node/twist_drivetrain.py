@@ -59,10 +59,17 @@ class DriveRunner(Node):
         self.twist_stale = True
         self.watchdog_timer = self.create_timer(0.1, self.watchdog)
 
-        self.serial_conn = serial.Serial(SERIAL_PORT, SERIAL_BAUD, timeout=1)
+        # /dev/ttyACM* numbering follows USB enumeration order, so on the robot
+        # pass a /dev/serial/by-id/ path for the thruster Pico instead
+        self.declare_parameter('port', SERIAL_PORT)
+        self.declare_parameter('baud', SERIAL_BAUD)
+        port = self.get_parameter('port').value
+        baud = int(self.get_parameter('baud').value)
+
+        self.serial_conn = serial.Serial(port, baud, timeout=1)
         self.thruster_values = [0.0] * 6
         time.sleep(3)
-        self.get_logger().info(f'Using serial motor control on {SERIAL_PORT} @ {SERIAL_BAUD}')
+        self.get_logger().info(f'Using serial motor control on {port} @ {baud}')
 
         self.drivetrainInit()
 

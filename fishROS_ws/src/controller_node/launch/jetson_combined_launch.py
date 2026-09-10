@@ -8,10 +8,12 @@ Then Run: ros2 launch controller_node jetson_combined_launch.py
 
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from launch.actions import ExecuteProcess
+from launch.actions import DeclareLaunchArgument, ExecuteProcess
+from launch.substitutions import LaunchConfiguration
 
 def generate_launch_description():
     return LaunchDescription([
+        DeclareLaunchArgument('thruster_port', default_value='/dev/ttyACM1'),
         Node(
             package='fish_cam',
             executable='DWE_exploreHD_pub',
@@ -27,6 +29,7 @@ def generate_launch_description():
         Node(
             package='controller_node',
             executable='drivetrain_node',
+            parameters=[{'port': LaunchConfiguration('thruster_port')}],
         ),
         # Node(
         #     package='stabilization_pub',
