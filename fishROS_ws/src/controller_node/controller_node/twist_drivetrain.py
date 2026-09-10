@@ -63,13 +63,14 @@ class DriveRunner(Node):
         # pass a /dev/serial/by-id/ path for the thruster Pico instead
         self.declare_parameter('port', SERIAL_PORT)
         self.declare_parameter('baud', SERIAL_BAUD)
-        port = self.get_parameter('port').value
-        baud = int(self.get_parameter('baud').value)
+        self.port = self.get_parameter('port').value
+        self.baud = int(self.get_parameter('baud').value)
 
-        self.serial_conn = serial.Serial(port, baud, timeout=1)
+        # write_timeout keeps a Pico that stops reading from blocking the executor
+        self.serial_conn = serial.Serial(self.port, self.baud, timeout=1, write_timeout=0.1)
         self.thruster_values = [0.0] * 6
         time.sleep(3)
-        self.get_logger().info(f'Using serial motor control on {port} @ {baud}')
+        self.get_logger().info(f'Using serial motor control on {self.port} @ {self.baud}')
 
         self.drivetrainInit()
 
@@ -99,16 +100,30 @@ class DriveRunner(Node):
             value_str = f"0{value_str}"
         return value_str
 
+    def reopen_serial(self):
+        try:
+            self.serial_conn.open()
+            self.get_logger().info(f'Reopened {self.port}')
+        except serial.SerialException as e:
+            self.get_logger().error(f'Cannot open {self.port}: {e}', throttle_duration_sec=1.0)
+
     def flush_thrusters(self):
-        if self.serial_conn is None or not self.serial_conn.is_open:
-            self.get_logger().info(f'Serial conn {self.serial_conn}, is open {self.serial_conn.is_open}')
-            return
+        if not self.serial_conn.is_open:
+            self.reopen_serial()
+            if not self.serial_conn.is_open:
+                return
 
         cmd = ""
         for pin, value in zip(MOTOR_PINS, self.thruster_values):
             cmd += f"z{int(pin):02d}{self._format_motor_value(value)}x\n"
-        #self.get_logger().info(f'Not running thruster {index}: {value}')
-        self.serial_conn.write(cmd.encode())
+        try:
+            self.serial_conn.write(cmd.encode())
+        except serial.SerialTimeoutException:
+            self.get_logger().warn('Pico is not reading, dropped a thruster frame', throttle_duration_sec=1.0)
+        except serial.SerialException as e:
+            # Pico unplugged or reset; close so the next flush tries to reopen
+            self.get_logger().error(f'Thruster serial write failed: {e}', throttle_duration_sec=1.0)
+            self.serial_conn.close()
 
     def stop_thrusters(self):
         for i in range(6):
@@ -175,7 +190,7 @@ class DriveRunner(Node):
         self.last_stabilization_time = self.get_clock().now()
 
     def close(self):
-        if self.serial_conn is not None and self.serial_conn.is_open:
+        if self.serial_conn.is_open:
             self.stop_thrusters()
             self.serial_conn.close()
 
