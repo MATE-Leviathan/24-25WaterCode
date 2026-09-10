@@ -22,8 +22,11 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPo
 LOW_SENSITIVITY = 0.65  # This is basically how much inputs are scaled when in sensitive mode
 HIGH_SENSITIVITY = 1
 
+JOY_TIMEOUT = 0.5  # seconds without /joy before sending a zero twist
+
 # Global dynamic variables
 controller_init = False
+last_joy_time = 0.0
 axes = []
 buttons = []
 sensitivity = 1
@@ -79,9 +82,10 @@ class ControllerSub(Node):
         Pad Vertical: 7 - up -> 1, down -> -1
         """
 
-        global controller_init, axes, buttons, sensitivity, old_press, holding, current_depth, hold_depth
+        global controller_init, axes, buttons, sensitivity, old_press, holding, last_joy_time
         axes = msg.axes
         buttons = msg.buttons
+        last_joy_time = time.monotonic()
         controller_init = True
 
         # Modifing sensitivity, A turns on low sensitivity mode, B turns it off
@@ -118,6 +122,7 @@ class TwistPub(Node):
         timer_period = 0.02  # 50 Hz
         self.timer = self.create_timer(timer_period, self.publishTwist)
         self.trigger_axes_initialized = {}
+        self.joy_stale = False
 
     def axis_value(self, index):
         if 0 <= index < len(axes):
@@ -136,44 +141,58 @@ class TwistPub(Node):
         return value
 
     def publishTwist(self):
-        global hold_depth
         # axes[0] left stick x
         # axes[1] left stick y 
         # Trigger axes rest at 1, pass through 0, and are fully pulled at -1.
 
-        if controller_init:
-            twist_message = Twist()
+        if not controller_init:
+            return
 
-            # Linear Motion - (x, y, z), scaling inputs by sensitivity
-            twist_message.linear.x = axes[1] * sensitivity
-            twist_message.linear.y = axes[0] * sensitivity
+        # joy_linux repeats the last state at autorepeat_rate, so silence means
+        # the gamepad or joy node is gone. Send zeros rather than replaying the
+        # last stick position.
+        if time.monotonic() - last_joy_time > JOY_TIMEOUT:
+            if not self.joy_stale:
+                self.get_logger().warn(f'No joy input for {JOY_TIMEOUT}s, sending zero twist')
+                self.joy_stale = True
+            self.publisher.publish(Twist())
+            return
+        if self.joy_stale:
+            self.get_logger().info('Joy input back')
+            self.joy_stale = False
 
-            left_trigger_raw = self.axis_value(left_trigger_axis)
-            right_trigger_raw = self.axis_value(right_trigger_axis)
-            left_trigger = self.trigger_amount(
-                self.trigger_axis_value(left_trigger_axis)
-            )
-            right_trigger = self.trigger_amount(
-                self.trigger_axis_value(right_trigger_axis)
-            )
-            linear_z = left_trigger - right_trigger
+        twist_message = Twist()
 
-            self.get_logger().debug(
-                f'Linear Z {linear_z} '
-                f'raw triggers L={left_trigger_raw} R={right_trigger_raw}'
-            )
+        # Linear Motion - (x, y, z), scaling inputs by sensitivity
+        twist_message.linear.x = axes[1] * sensitivity
+        twist_message.linear.y = axes[0] * sensitivity
 
-            if abs(linear_z) > 0.08: # Deadzone
-                twist_message.linear.z = linear_z
-            else:
-                twist_message.linear.z = 0.0
+        left_trigger_raw = self.axis_value(left_trigger_axis)
+        right_trigger_raw = self.axis_value(right_trigger_axis)
+        left_trigger = self.trigger_amount(
+            self.trigger_axis_value(left_trigger_axis)
+        )
+        right_trigger = self.trigger_amount(
+            self.trigger_axis_value(right_trigger_axis)
+        )
+        linear_z = left_trigger - right_trigger
 
-            # Angular Motion - Just yaw for now
-            twist_message.angular.x = 0.0
-            twist_message.angular.y = 0.0
-            twist_message.angular.z = -axes[3] * 0.8 * sensitivity
-            
-            self.publisher.publish(twist_message)
+        self.get_logger().debug(
+            f'Linear Z {linear_z} '
+            f'raw triggers L={left_trigger_raw} R={right_trigger_raw}'
+        )
+
+        if abs(linear_z) > 0.08: # Deadzone
+            twist_message.linear.z = linear_z
+        else:
+            twist_message.linear.z = 0.0
+
+        # Angular Motion - Just yaw for now
+        twist_message.angular.x = 0.0
+        twist_message.angular.y = 0.0
+        twist_message.angular.z = -axes[3] * 0.8 * sensitivity
+        
+        self.publisher.publish(twist_message)
 
 
 class PointPub(Node):

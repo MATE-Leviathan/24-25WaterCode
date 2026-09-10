@@ -16,6 +16,9 @@ def generate_launch_description():
         Node(
             package='joy_linux',
             executable='joy_linux_node',
+            # Repeat the last state so controller_node can tell a live
+            # gamepad from one that has gone quiet
+            parameters=[{'autorepeat_rate': 20.0}],
         ),
         Node(
             package='controller_node',
