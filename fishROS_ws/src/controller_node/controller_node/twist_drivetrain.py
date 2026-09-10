@@ -93,6 +93,13 @@ class DriveRunner(Node):
         self.thruster_values[index] = value
         self.get_logger().info(f'Thruster {index}: {value}')
 
+    def set_thrusters_scaled(self, values):
+        # Scale the group down together so combined inputs keep their ratio
+        # instead of clipping one thruster
+        peak = max(1.0, max(abs(v) for v in values.values()))
+        for index, value in values.items():
+            self.set_thruster(index, value / peak)
+
     def _format_motor_value(self, value):
         normalized = max(0.0, min(1.0, 0.5 + (0.5 * value)))
         value_str = f"{normalized:.2f}"
@@ -151,30 +158,29 @@ class DriveRunner(Node):
         z = msg.linear.z
         x_rotation = msg.angular.x
         z_rotation = msg.angular.z
-        ### Horizontal Motor Writing
-        if abs(x) > CONTROLLER_DEADZONE or abs(y) > CONTROLLER_DEADZONE: # Linear Movement in XY
-            self.set_thruster(BACK_RIGHT, -ONEOVERROOTTWO * (x - y))
-            self.set_thruster(FRONT_LEFT, ONEOVERROOTTWO * (x - y))
-            self.set_thruster(FRONT_RIGHT, -ONEOVERROOTTWO * (-y - x))
-            self.set_thruster(BACK_LEFT, ONEOVERROOTTWO * (-y - x))
-        elif abs(z_rotation) > CONTROLLER_DEADZONE:  # Yaw (Spin)
-            self.set_thruster(BACK_RIGHT, z_rotation * 0.75)
-            self.set_thruster(FRONT_LEFT, z_rotation * 0.75)
-            self.set_thruster(FRONT_RIGHT, -z_rotation * 0.75)
-            self.set_thruster(BACK_LEFT, -z_rotation * 0.75)
-        else:
-            self.set_thruster(BACK_RIGHT, 0.0)
-            self.set_thruster(FRONT_LEFT, 0.0)
-            self.set_thruster(FRONT_RIGHT, 0.0)
-            self.set_thruster(BACK_LEFT, 0.0)
+        if abs(x) <= CONTROLLER_DEADZONE and abs(y) <= CONTROLLER_DEADZONE:
+            x = y = 0.0
+        if abs(z_rotation) <= CONTROLLER_DEADZONE:
+            z_rotation = 0.0
+        if abs(z) <= CONTROLLER_DEADZONE:
+            z = 0.0
+        if abs(x_rotation) <= CONTROLLER_DEADZONE:
+            x_rotation = 0.0
 
-        ### Vertical Motor Writing
-        if abs(z) > CONTROLLER_DEADZONE:  # Linear Movement in Z
-            self.set_thruster(MIDDLE_LEFT, -z)
-            self.set_thruster(MIDDLE_RIGHT, -z)
-        elif abs(x_rotation) > CONTROLLER_DEADZONE:  # Roll
-            self.set_thruster(MIDDLE_LEFT, x_rotation)
-            self.set_thruster(MIDDLE_RIGHT, -x_rotation)
+        ### Horizontal Motor Writing: translation in XY plus yaw
+        self.set_thrusters_scaled({
+            BACK_RIGHT: -ONEOVERROOTTWO * (x - y) + z_rotation * 0.75,
+            FRONT_LEFT: ONEOVERROOTTWO * (x - y) + z_rotation * 0.75,
+            FRONT_RIGHT: -ONEOVERROOTTWO * (-y - x) - z_rotation * 0.75,
+            BACK_LEFT: ONEOVERROOTTWO * (-y - x) - z_rotation * 0.75,
+        })
+
+        ### Vertical Motor Writing: linear Z plus roll
+        if z != 0.0 or x_rotation != 0.0:
+            self.set_thrusters_scaled({
+                MIDDLE_LEFT: -z + x_rotation,
+                MIDDLE_RIGHT: -z - x_rotation,
+            })
         # Depth Hover with timeout
         elif (self.get_clock().now() - self.last_stabilization_time).nanoseconds * 1e-9 < self.stabilization_timeout_sec:
             self.set_thruster(MIDDLE_LEFT, self.stabilization)
